@@ -70,14 +70,20 @@
 
   .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .pane { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius-m); display: flex; flex-direction: column; min-height: 380px; min-width: 0; }
-  .pane h2 { font-size: .95rem; font-weight: 700; margin: 0; padding: 12px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
+  .pane h2 { font-size: .95rem; font-weight: 700; margin: 0; padding: 12px 18px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
   .pane h2 span { color: var(--muted); font-weight: 400; }
+  .pane h2 .linkbtn { color: var(--accent); }
   textarea#original, #resultado {
     flex: 1; width: 100%; border: 0; background: transparent; color: var(--ink);
     font: 1.06rem/1.8 "Literata", Georgia, serif; padding: 16px 18px; resize: vertical; min-height: 340px;
   }
   textarea#original:focus { outline: none; }
+  textarea#original, #resultado { height: min(70vh, 720px); min-height: 340px; overflow-y: auto; }
   #resultado { white-space: pre-wrap; overflow-wrap: anywhere; }
+  #resultado .par { margin: 0; }
+  #resultado[aria-busy="true"] { cursor: progress; }
+  .linkbtn.abrir { padding: 0; font-weight: 700; font-size: .95rem; }
+  .abrir:focus-within { outline: 3px solid var(--mk-conector); outline-offset: 2px; border-radius: 4px; }
   #resultado .vacio { color: var(--muted); font-family: "Atkinson Hyperlegible", sans-serif; font-size: 1rem; }
 
   /* marcas de corrección */
@@ -187,8 +193,8 @@
 
   <div class="panes">
     <section class="pane">
-      <h2>Texto original <span id="cuentaOrig">0 palabras</span></h2>
-      <textarea id="original" spellcheck="true" placeholder="Pega aquí el párrafo que quieres parafrasear."></textarea>
+      <h2>Texto original <span><label class="linkbtn abrir">Abrir .txt o .docx<input type="file" id="archivo" accept=".txt,.md,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></label> · <span id="cuentaOrig">0 palabras</span></span></h2>
+      <textarea id="original" spellcheck="true" placeholder="Pega aquí el texto que quieres parafrasear o abre un archivo. Se respetan los párrafos."></textarea>
     </section>
     <section class="pane">
       <h2>Resultado <span id="cuentaRes"></span></h2>
@@ -274,7 +280,9 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const P = window.Parafraseador;
-  const state = { intensidad: 'medio', seed: 1, overrides: {}, estructuraOff: new Set(), estructuraOn: new Set(), ultimo: null, textoBase: '' };
+  // El texto se procesa por párrafos: así un texto largo no congela la página
+  // y elegir un sinónimo solo vuelve a procesar su párrafo.
+  const state = { intensidad: 'medio', seed: 1, textoBase: '', partes: [], par: [], elec: [], resultado: '', listo: false, trabajo: 0 };
 
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -289,58 +297,171 @@
   $('personales').value = store.get('pp_personales') || '';
   setIntensidad(store.get('pp_intensidad') || 'medio', false);
 
-  function reiniciarElecciones() { state.overrides = {}; state.estructuraOff = new Set(); state.estructuraOn = new Set(); }
+  function reiniciarElecciones() { state.elec = []; }
+  function eleccion(i) { return state.elec[i] || (state.elec[i] = { ov: {}, off: new Set(), on: new Set() }); }
   function setIntensidad(v, rerun) {
     state.intensidad = v;
     document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.int === v)));
     store.set('pp_intensidad', v);
-    if (rerun && state.ultimo) { reiniciarElecciones(); ejecutar(); }
+    if (rerun && state.listo) { reiniciarElecciones(); ejecutar(); }
   }
   document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => setIntensidad(b.dataset.int, true)));
-  $('dominio').addEventListener('change', () => { store.set('pp_dominio', $('dominio').value); if (state.ultimo) { reiniciarElecciones(); ejecutar(); } });
-  $('estructura').addEventListener('change', () => { store.set('pp_estructura', $('estructura').checked ? '1' : '0'); if (state.ultimo) { reiniciarElecciones(); ejecutar(); } });
+  $('dominio').addEventListener('change', () => { store.set('pp_dominio', $('dominio').value); if (state.listo) { reiniciarElecciones(); ejecutar(); } });
+  $('estructura').addEventListener('change', () => { store.set('pp_estructura', $('estructura').checked ? '1' : '0'); if (state.listo) { reiniciarElecciones(); ejecutar(); } });
 
   const contar = (t) => (t.trim().match(/\S+/g) || []).length;
-  $('original').addEventListener('input', () => { $('cuentaOrig').textContent = contar($('original').value) + ' palabras'; });
+  const fmt = (n) => n.toLocaleString('es-PE');
+  $('original').addEventListener('input', () => { $('cuentaOrig').textContent = fmt(contar($('original').value)) + ' palabras'; });
 
   const listaProtegidos = () => $('protegidos').value.split(',').map((s) => s.trim()).filter(Boolean);
   ['protegidos', 'personales'].forEach((id) => $(id).addEventListener('change', () => {
     store.set('pp_' + id, $(id).value);
-    if (state.ultimo) { state.overrides = {}; ejecutar(); }
+    if (state.listo) { state.elec.forEach((e) => { if (e) e.ov = {}; }); ejecutar(); }
   }));
 
-  function ejecutar() {
-    const texto = $('original').value;
-    if (!texto.trim()) { toast('Primero pega un texto en el cuadro de la izquierda.'); $('original').focus(); return; }
-    if (texto !== state.textoBase) { reiniciarElecciones(); state.textoBase = texto; }
-    const r = P.parafrasear(texto, {
-      seed: state.seed, intensidad: state.intensidad, overrides: state.overrides,
-      protegidos: listaProtegidos(), personales: P.leerPersonales($('personales').value),
-      dominio: $('dominio').value, estructura: $('estructura').checked, estructuraOff: [...state.estructuraOff], estructuraOn: [...state.estructuraOn],
+  // --- abrir archivo .txt / .docx ---
+  $('archivo').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      let texto;
+      if (/\.docx$/i.test(f.name)) texto = await leerDocx(await f.arrayBuffer());
+      else if (/\.(txt|md|text)$/i.test(f.name) || f.type.startsWith('text/')) texto = await f.text();
+      else { toast('Solo se pueden abrir archivos .txt o .docx.'); return; }
+      $('original').value = texto.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+      $('original').dispatchEvent(new Event('input'));
+      toast('Archivo cargado: ' + f.name);
+    } catch (err) {
+      toast('No se pudo leer el archivo. Si es .docx, revisa que no esté protegido con contraseña.');
+    }
+  });
+  let jszip = null;
+  function cargarJSZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    if (jszip) return jszip;
+    jszip = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = () => res(window.JSZip); s.onerror = () => { jszip = null; rej(new Error('jszip')); };
+      document.head.appendChild(s);
     });
-    state.ultimo = r;
-    render(texto, r);
+    return jszip;
+  }
+  async function leerDocx(buf) {
+    const JSZip = await cargarJSZip();
+    const zip = await JSZip.loadAsync(buf);
+    const xml = await zip.file('word/document.xml').async('string');
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    const parrafos = [];
+    const pars = doc.getElementsByTagNameNS(W, 'p');
+    for (const p of pars) {
+      // los párrafos dentro de tablas o cuadros de texto también se incluyen
+      let t = '';
+      const walker = doc.createTreeWalker(p, NodeFilter.SHOW_ELEMENT);
+      let n = walker.currentNode;
+      while (n) {
+        if (n.namespaceURI === W) {
+          if (n.localName === 't') t += n.textContent;
+          else if (n.localName === 'tab') t += '\t';
+          else if (n.localName === 'br' || n.localName === 'cr') t += '\n';
+          else if (n.localName === 'delText' || n.localName === 'instrText') { /* texto eliminado o códigos de campo */ }
+        }
+        n = walker.nextNode();
+      }
+      parrafos.push(t);
+    }
+    return parrafos.join('\n\n');
   }
 
-  // --- render ---
-  function render(texto, r) {
+  // --- procesamiento por párrafos ---
+  function opcionesBase() {
+    return {
+      intensidad: state.intensidad, protegidos: listaProtegidos(), personales: P.leerPersonales($('personales').value),
+      dominio: $('dominio').value, estructura: $('estructura').checked, contexto: state.textoBase,
+    };
+  }
+  function procesarParrafo(i, base) {
+    const t = state.partes[i];
+    const e = eleccion(i);
+    const r = P.parafrasear(t, Object.assign({}, base, {
+      seed: state.seed * 7919 + i, overrides: e.ov, estructuraOff: [...e.off], estructuraOn: [...e.on],
+    }));
+    state.par[i] = { r, sim: P.similitud(t, r.resultado) };
+  }
+  const esSeparador = (i) => i % 2 === 1;
+
+  function ejecutar() {
+    const texto = $('original').value.replace(/\r\n?/g, '\n');
+    if (!texto.trim()) { toast('Primero pega un texto o abre un archivo en el cuadro de la izquierda.'); $('original').focus(); return; }
+    if (texto !== state.textoBase) { reiniciarElecciones(); state.textoBase = texto; }
     cerrarMenu();
-    const sim = P.similitud(texto, r.resultado);
+    const trabajo = ++state.trabajo;
+    state.listo = false;
+    state.partes = texto.split(/(\n+)/);
+    state.par = [];
     const out = $('resultado');
     out.textContent = '';
+    out.setAttribute('aria-busy', 'true');
+    const base = opcionesBase();
+    const total = state.partes.length;
+    let i = 0;
+    $('btnParafrasear').disabled = true;
+    (function lote() {
+      if (trabajo !== state.trabajo) return;
+      const t0 = performance.now();
+      const frag = document.createDocumentFragment();
+      while (i < total && performance.now() - t0 < 30) {
+        if (esSeparador(i)) {
+          // un salto simple separa párrafos; cada salto adicional deja una línea en blanco
+          const extra = state.partes[i].length - 1;
+          if (extra > 0) frag.appendChild(document.createTextNode('\n'.repeat(extra)));
+        } else if (state.partes[i]) {
+          procesarParrafo(i, base);
+          frag.appendChild(renderParrafo(i));
+        }
+        i++;
+      }
+      out.appendChild(frag);
+      if (i < total) {
+        $('cuentaRes').textContent = 'Procesando ' + Math.round((i / total) * 100) + ' %';
+        setTimeout(lote, 0);
+      } else {
+        out.removeAttribute('aria-busy');
+        $('btnParafrasear').disabled = false;
+        state.listo = true;
+        resumen();
+      }
+    })();
+  }
+
+  function reprocesar(i, focoCid) {
+    procesarParrafo(i, opcionesBase());
+    const viejo = $('resultado').querySelector('.par[data-p="' + i + '"]');
+    const nuevo = renderParrafo(i);
+    if (viejo) viejo.replaceWith(nuevo);
+    resumen();
+    if (focoCid != null) { const el = nuevo.querySelector('[data-cid="' + focoCid + '"]'); if (el) el.focus(); }
+  }
+
+  // --- render de un párrafo ---
+  function renderParrafo(i) {
+    const { r, sim } = state.par[i];
+    const div = document.createElement('div');
+    div.className = 'par';
+    div.dataset.p = i;
     const estrPorSid = new Map(r.estructuras.map((e) => [e.sid, e]));
-    let w = 0, contenedor = out, sidActual = null;
+    let w = 0, contenedor = div, sidActual = null;
     const reW = /([\p{L}\p{M}\d]+)/u;
 
     r.segmentos.forEach((seg) => {
-      // abrir o cerrar el envoltorio de oración reestructurada
       if (seg.sid !== sidActual) {
-        contenedor = out; sidActual = seg.sid;
+        contenedor = div; sidActual = seg.sid;
         if (seg.sid != null && estrPorSid.has(seg.sid)) {
           const e = estrPorSid.get(seg.sid);
           contenedor = document.createElement('span');
           contenedor.className = 'estr';
-          contenedor.dataset.sid = seg.sid;
           const pin = document.createElement('button');
           pin.type = 'button';
           pin.className = 'pin' + (e.activa ? '' : ' off');
@@ -348,8 +469,8 @@
           pin.setAttribute('aria-haspopup', 'menu');
           pin.setAttribute('aria-expanded', 'false');
           pin.setAttribute('aria-label', e.activa ? 'Oración reordenada: ' + e.regla : 'Oración sin reordenar');
-                    contenedor.appendChild(pin);
-          out.appendChild(contenedor);
+          contenedor.appendChild(pin);
+          div.appendChild(contenedor);
         }
       }
       if (seg.cid != null) {
@@ -370,21 +491,37 @@
       const parent = seg.cls === 'concordancia'
         ? Object.assign(document.createElement('span'), { className: 'conc', title: 'Ajuste de concordancia' })
         : contenedor;
-      seg.text.split(reW).forEach((part, i) => {
+      // los tramos iguales al original se agrupan en un solo resaltado
+      let buf = '', bufSolap = false;
+      const volcar = () => {
+        if (!buf) return;
+        if (bufSolap) { const s = document.createElement('span'); s.className = 'solap'; s.textContent = buf; parent.appendChild(s); }
+        else parent.appendChild(document.createTextNode(buf));
+        buf = '';
+      };
+      seg.text.split(reW).forEach((part, k) => {
         if (!part) return;
-        if (i % 2 === 1) {
-          if (sim.marcadas.has(w)) {
-            const s = document.createElement('span'); s.className = 'solap'; s.textContent = part; parent.appendChild(s);
-          } else parent.appendChild(document.createTextNode(part));
-          w++;
-        } else if (/^[ \t]+$/.test(part) && w > 0 && sim.marcadas.has(w - 1) && sim.marcadas.has(w)) {
-          const s = document.createElement('span'); s.className = 'solap'; s.textContent = part; parent.appendChild(s);
-        } else parent.appendChild(document.createTextNode(part));
+        let solap;
+        if (k % 2 === 1) { solap = sim.marcadas.has(w); w++; }
+        else solap = /^[ \t]+$/.test(part) && w > 0 && sim.marcadas.has(w - 1) && sim.marcadas.has(w);
+        if (solap !== bufSolap) { volcar(); bufSolap = solap; }
+        buf += part;
       });
+      volcar();
       if (parent !== contenedor) contenedor.appendChild(parent);
     });
+    return div;
+  }
 
-    $('cuentaRes').textContent = contar(r.resultado) + ' palabras';
+  // --- totales ---
+  function resumen() {
+    const partes = state.partes.map((t, i) => (esSeparador(i) || !state.par[i] ? t : state.par[i].r.resultado));
+    state.resultado = partes.join('');
+    const sim = P.similitud(state.textoBase, state.resultado);
+    const st = { estructuras: 0, conectores: 0, sinonimos: 0, personales: 0, concordancia: 0 };
+    state.par.forEach((p) => { if (p) Object.keys(st).forEach((k) => { st[k] += p.r.stats[k] || 0; }); });
+
+    $('cuentaRes').textContent = fmt(contar(state.resultado)) + ' palabras';
     ['meter', 'leyenda', 'acciones'].forEach((id) => { $(id).hidden = false; });
     $('pct').textContent = sim.porcentaje + '%';
     $('barra').style.width = sim.porcentaje + '%';
@@ -395,12 +532,12 @@
     $('barra').style.background = color;
     $('pct').style.color = color;
     $('consejo').textContent = msg;
-    $('nEstr').textContent = r.stats.estructuras;
-    $('nCon').textContent = r.stats.conectores;
-    $('nSin').textContent = r.stats.sinonimos;
-    $('nPers').textContent = r.stats.personales;
-    $('legPers').hidden = !r.stats.personales;
-    $('nConc').textContent = r.stats.concordancia;
+    $('nEstr').textContent = fmt(st.estructuras);
+    $('nCon').textContent = fmt(st.conectores);
+    $('nSin').textContent = fmt(st.sinonimos);
+    $('nPers').textContent = fmt(st.personales);
+    $('legPers').hidden = !st.personales;
+    $('nConc').textContent = fmt(st.concordancia);
     $('btnVariante').disabled = false;
   }
 
@@ -415,8 +552,11 @@
     menu.appendChild(b);
     return b;
   }
+  const parrafoDe = (el) => +el.closest('.par').dataset.p;
   function abrirMenuCambio(el) {
-    const ch = state.ultimo.cambios[+el.dataset.cid];
+    if (!state.listo) return;
+    const pi = parrafoDe(el);
+    const ch = state.par[pi].r.cambios[+el.dataset.cid];
     menu.textContent = '';
     const p = document.createElement('p');
     p.textContent = { conector: 'Conector', sinonimo: 'Sinónimo', personal: 'De tu diccionario' }[ch.tipo] || 'Cambio';
@@ -424,27 +564,30 @@
     const actual = (ch.elegido || ch.original).toLowerCase();
     ch.opciones.forEach((op) => {
       if (op.toLowerCase() === ch.original.toLowerCase()) return;
-      const b = boton(op, '', () => elegir(ch, op));
+      const b = boton(op, '', () => elegir(pi, ch, op));
       if (op.toLowerCase() === actual) b.setAttribute('aria-current', 'true');
     });
-    boton('Dejar «' + ch.original + '»', 'orig', () => elegir(ch, '__orig__'));
+    boton('Dejar «' + ch.original + '»', 'orig', () => elegir(pi, ch, '__orig__'));
     posicionar(el);
   }
   function abrirMenuEstructura(pin) {
+    if (!state.listo) return;
+    const pi = parrafoDe(pin);
     const sid = +pin.dataset.sid;
-    const e = state.ultimo.estructuras.find((x) => x.sid === sid);
+    const e = state.par[pi].r.estructuras.find((x) => x.sid === sid);
+    const el = eleccion(pi);
     menu.textContent = '';
     const p = document.createElement('p');
     p.textContent = e.activa ? 'Oración reordenada: ' + e.regla.toLowerCase() : 'Esta oración se puede reordenar: ' + e.regla.toLowerCase();
     menu.appendChild(p);
     if (e.activa) {
       const q = document.createElement('blockquote'); q.textContent = e.original; menu.appendChild(q);
-      boton('Volver a la estructura original', 'accion', () => { state.estructuraOn.delete(sid); state.estructuraOff.add(sid); state.overrides = {}; ejecutar(); });
+      boton('Volver a la estructura original', 'accion', () => { el.on.delete(sid); el.off.add(sid); el.ov = {}; cerrarMenu(); reprocesar(pi); });
     } else {
-      boton('Reordenar esta oración', 'accion', () => { state.estructuraOff.delete(sid); state.estructuraOn.add(sid); state.overrides = {}; ejecutar(); });
+      boton('Reordenar esta oración', 'accion', () => { el.off.delete(sid); el.on.add(sid); el.ov = {}; cerrarMenu(); reprocesar(pi); });
     }
     posicionar(pin);
-    const cont = pin.parentElement; cont.classList.add('foco');
+    pin.parentElement.classList.add('foco');
   }
   function posicionar(el) {
     const rect = el.getBoundingClientRect();
@@ -461,14 +604,13 @@
   function cerrarMenu(devolverFoco) {
     menu.classList.remove('open');
     document.querySelectorAll('.estr.foco').forEach((x) => x.classList.remove('foco'));
-    if (ancla) { ancla.setAttribute('aria-expanded', 'false'); if (devolverFoco) ancla.focus(); }
+    if (ancla) { ancla.setAttribute('aria-expanded', 'false'); if (devolverFoco && document.contains(ancla)) ancla.focus(); }
     ancla = null;
   }
-  function elegir(ch, op) {
-    state.overrides[ch.ini] = op;
-    ejecutar();
-    const nuevo = $('resultado').querySelector('[data-cid="' + ch.id + '"]');
-    if (nuevo) nuevo.focus();
+  function elegir(pi, ch, op) {
+    eleccion(pi).ov[ch.ini] = op;
+    cerrarMenu();
+    reprocesar(pi, ch.id);
   }
   $('resultado').addEventListener('click', (e) => {
     const pin = e.target.closest('.pin');
@@ -480,6 +622,7 @@
     const el = e.target.closest('.mk');
     if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirMenuCambio(el); }
   });
+  $('resultado').addEventListener('scroll', () => cerrarMenu());
   document.addEventListener('click', (e) => { if (!menu.contains(e.target)) cerrarMenu(); });
   document.addEventListener('keydown', (e) => {
     if (!menu.classList.contains('open')) return;
@@ -496,10 +639,10 @@
   // --- acciones ---
   $('btnParafrasear').addEventListener('click', () => { reiniciarElecciones(); ejecutar(); });
   $('btnVariante').addEventListener('click', () => { state.seed++; reiniciarElecciones(); ejecutar(); });
-  $('btnCopiar').addEventListener('click', () => copiar(state.ultimo ? state.ultimo.resultado : '', null, 'Resultado copiado'));
+  $('btnCopiar').addEventListener('click', () => copiar(state.resultado, null, 'Resultado copiado'));
   $('btnDescargar').addEventListener('click', () => {
-    if (!state.ultimo) return;
-    const blob = new Blob([state.ultimo.resultado], { type: 'text/plain;charset=utf-8' });
+    if (!state.resultado) return;
+    const blob = new Blob([state.resultado], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = 'parafraseo.txt';
     document.body.appendChild(a); a.click(); a.remove();

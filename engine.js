@@ -279,7 +279,7 @@
     'afirmar', 'mencionar', 'buscar', 'permitir', 'posibilitar', 'requerir', 'necesitar', 'citar', 'implicar', 'involucrar', 'considerar', 'estimar', 'mantener']);
   const PREP_CORTE = new Set(['en', 'durante', 'mediante', 'para', 'desde', 'según', 'con', 'tras']);
   const MARC_FIN = /\s(durante|desde|mediante|a través del?|por medio del?|a lo largo del?|a partir del?|en el año|en los años|en el periodo|en el período|en los últimos|en las últimas|en el mes|en el área|en la empresa|en el sector|en el distrito|en la ciudad|en el taller|en el almacén|en la región|en el país|en la actualidad|actualmente|hoy en día|en esta investigación|en el presente estudio|según|de acuerdo con|conforme a|gracias al?|debido al?|a causa del?|como resultado del?|como consecuencia del?|con el apoyo del?|frente al?|en comparación con|en contraste con)(?=\s|$)/giu;
-  const MARC_INI = /^((?:En|Durante|Desde|Tras|Luego de|Después de|Mediante|A través de|Por medio de|A lo largo de|A partir de|Según|De acuerdo con|Conforme a|Con base en|Gracias a|Debido a|A causa de|Como resultado de|Como consecuencia de|Actualmente|Hoy en día|Inicialmente|Posteriormente|Recientemente|Anteriormente|Históricamente)(?=[\s,])[^,]*),\s+(.+)$/u;
+  const MARC_INI = /^((?:En|Durante|Desde|Tras|Luego de|Después de|Mediante|A través de|Por medio de|A lo largo de|A partir de|Según|De acuerdo con|Conforme a|Con base en|Con|Sobre|Bajo|Ante|Entre|Frente a|Para (?:el|la|los|las|este|esta|estos|estas|un|una|su|sus|nuestro|nuestra)|Gracias a|Debido a|A causa de|Como resultado de|Como consecuencia de|Actualmente|Hoy en día|Inicialmente|Posteriormente|Recientemente|Anteriormente|Históricamente)(?=[\s,])[^,]*),\s+(.+)$/u;
   const COMA_FIN = /^(según|de acuerdo con|conforme a)/i;
 
   function elegirDistinto(lista, actual, h) {
@@ -287,13 +287,18 @@
     return op[Math.floor(h * op.length)];
   }
 
-  function crearMinuscula(textoCompleto) {
+  const PALABRAS_FUNCION = new Set(['el', 'la', 'los', 'las', 'lo', 'un', 'una', 'unos', 'unas', 'se', 'no', 'su', 'sus', 'este', 'esta', 'estos', 'estas', 'ese', 'esa', 'esto', 'eso', 'ello', 'ellos', 'ellas', 'nadie', 'nada', 'todo', 'toda', 'todos', 'todas', 'cada', 'dicho', 'dicha', 'dichos', 'dichas', 'es', 'son', 'fue', 'fueron', 'hay', 'había', 'muchos', 'muchas', 'varios', 'varias', 'algunos', 'algunas', 'otro', 'otra', 'otros', 'otras', 'tal', 'tales', 'cuando', 'si', 'como', 'aunque', 'porque', 'ya', 'así', 'también', 'además', 'entonces', 'luego', 'solo', 'sólo']);
+  function crearMinuscula(textoCompleto, indice) {
+    const enMinuscula = new Set((textoCompleto.match(/(?<![\p{L}])\p{Ll}[\p{L}]*/gu) || []));
     return function minusculaInicial(s) {
       const m = s.match(/^(\p{L}+)/u);
       if (!m) return s;
       const w = m[1];
       if (w.length >= 2 && w === w.toUpperCase()) return s; // sigla
       if (!esMayus(w[0])) return s;
+      const lw = w.toLowerCase();
+      const comun = PALABRAS_FUNCION.has(lw) || enMinuscula.has(lw) || PASIVA.formas.has(lw) || (indice && indice.has(lw)) || /(aron|ieron|aban|ían|ó)$/.test(lw);
+      if (!comun) return s; // probable nombre propio ("Kurian")
       // si la palabra aparece con mayúscula en medio de una oración, es nombre propio
       const re = new RegExp('[\\p{Ll},;:]\\s+' + w + '(?![\\p{L}])', 'u');
       if (re.test(textoCompleto)) return s;
@@ -302,7 +307,7 @@
   }
 
   const RELATIVO_INI = /^,\s+(que|el cual|la cual|los cuales|las cuales|lo que|lo cual|quien|quienes|donde)(\s|$)/i;
-  const tieneSubordinada = (s) => /(^|\s)(que|cuando|donde|mientras|porque|cual|cuales|quien|quienes)(\s|$)/i.test(s);
+  const tieneSubordinada = (s) => /(^|\s)(que|qué|cuando|cuándo|donde|dónde|mientras|porque|cual|cuales|cuál|quien|quienes|cómo|cuánto|cuánta|cuántos|cuántas)(\s|$)/i.test(s);
   // "y" seguido de algo que no parece sustantivo (probable verbo coordinado)
   function coordinaVerbo(palabras) {
     for (let k = 0; k < palabras.length - 1; k++) {
@@ -346,7 +351,7 @@
     }
     // Finalidad al final -> al inicio
     m = core.match(/^([^,]+?)\s+(para|con el fin de|a fin de|con el objetivo de|con el propósito de)\s+(\p{L}+)(\s+[^,]*)?$/u);
-    if (m && INF.test(m[3]) && nPalabras(m[1]) >= 4) {
+    if (m && INF.test(m[3]) && nPalabras(m[1]) >= 4 && !tieneSubordinada(m[4] || '') && !coordinaVerbo((m[4] || '').trim().split(/\s+/))) {
       push(mayusInicial(m[2]) + ' ' + m[3] + (m[4] || '') + ', ' + low(m[1]), 'la finalidad pasa al inicio', 'finalidad');
     }
     // Concesión
@@ -405,6 +410,7 @@
       const w = clausula.split(/\s+/);
       const gnSuj = DET_GN[w[0].toLowerCase()];
       if (!gnSuj || w.length < 5 || RELATIVO_INI.test(resto)) return;
+      if (resto && !/^,\s+(pero|aunque|ya que|porque|puesto que|dado que|mientras|sin|según|lo que|lo cual|y (?:el|la|los|las|su|sus|este|esta)\s)/i.test(resto)) return;
       for (let i = 2; i <= Math.min(8, w.length - 3); i++) {
         const lw = w[i].toLowerCase();
         const v = PASIVA.formas.get(lw);
@@ -479,8 +485,9 @@
     }
     // Inciso tras el sujeto: "Reda et al. (2025), en «Título», trabajaron..." -> "En «Título», Reda et al. (2025) trabajaron..."
     m = core.match(/^([^,]{2,70}),\s+((?:en|según|mediante|a través de|durante|con|desde)\s[^,]{2,90}),\s+(\p{Ll}[^,]*(?:,.*)?)$/u);
-    if (m && nPalabras(m[1]) <= 8 && nPalabras(m[3]) >= 3 && !CONECTORES_INI.has(m[1].toLowerCase()) && !/^(en|según|mediante|durante|con|desde|para|si|cuando|aunque)\s/i.test(m[1]) && !DET_GN[m[3].split(/\s+/)[0]]) {
-      push(mayusInicial(m[2]) + ', ' + m[1] + ' ' + m[3], 'el inciso pasa al inicio', 'inciso');
+    const ini3 = m ? m[3].split(/\s+/)[0].toLowerCase() : '';
+    if (m && nPalabras(m[1]) <= 8 && nPalabras(m[3]) >= 3 && !CONECTORES_INI.has(m[1].toLowerCase()) && !/^(en|según|mediante|durante|con|desde|para|si|cuando|aunque)\s/i.test(m[1]) && !DET_GN[ini3] && !STOP_SN.has(ini3) && !/^(de|del|al|sobre|bajo|entre)$/.test(ini3)) {
+      push(mayusInicial(m[2]) + ', ' + low(m[1]) + ' ' + m[3], 'el inciso pasa al inicio', 'complemento');
     }
     // Consecuencia -> causa al inicio: "A, así que B" -> "Dado que a, B"
     m = core.match(/^([^,]+),\s+(así que|por lo que|de modo que|de manera que|por eso|por ello|por lo cual|por consiguiente|por lo tanto)\s+(.+)$/u);
@@ -493,8 +500,8 @@
       push(m[1] + ' ' + m[2] + ' ' + m[5] + ' ' + m[3] + ' ' + m[4], 'el inciso de tiempo pasa al final', 'inciso');
     }
     // "A, sin + infinitivo" <-> "Sin + infinitivo, A"
-    m = core.match(/^(.+),\s+sin\s+(\p{L}+(?:ar|er|ir)(?:se|lo|la|los|las)?\s[^,]+)$/u);
-    if (m && nPalabras(m[1]) >= 4) {
+    m = core.match(/^([^,]+),\s+sin\s+(\p{L}+(?:ar|er|ir)(?:se|lo|la|los|las)?\s[^,]+)$/u);
+    if (m && nPalabras(m[1]) >= 4 && nPalabras(m[2]) <= 10 && !tieneSubordinada(m[2])) {
       push('Sin ' + m[2] + ', ' + low(m[1]), 'el complemento pasa al inicio', 'sin');
     }
     m = core.match(/^Sin\s+(\p{L}+(?:ar|er|ir)(?:se|lo|la|los|las)?\s[^,]+),\s+(.+)$/u);
@@ -506,6 +513,37 @@
     if (m && nPalabras(m[3]) >= 3) {
       const de = { el: 'del', la: 'de la', los: 'de los', las: 'de las', un: 'de un', una: 'de una', unos: 'de unos', unas: 'de unas' }[m[2]];
       push((/^Fue/.test(m[1]) ? 'Se trataba ' : 'Se trata ') + de + ' ' + m[3], 'se reformula el inicio', 'inicio');
+    }
+    // Finalidad: "Para responderla, diseñó..." -> "Con el propósito de responderla, diseñó..." (cuando no se puede mover)
+    m = core.match(/^(Para|Con el fin de|Con el propósito de|A fin de)\s+(\p{L}+(?:ar|er|ir)(?:se|lo|la|los|las|le|les)?)(\s[^,]*)?,\s+(.+)$/u);
+    if (m) {
+      const alt = elegirDistinto(['para', 'con el fin de', 'con el propósito de', 'a fin de'], m[1], h);
+      push(mayusInicial(alt) + ' ' + m[2] + (m[3] || '') + ', ' + m[4], 'se reformula la finalidad', 'finalidad');
+    }
+    // Complemento final separado por coma -> al inicio ("…, sobre infraestructura de nube" / "…, midiendo precisión")
+    m = core.match(/^([^,]+),\s+((?:sobre|con|bajo|en|mediante|durante|desde|tras|ante|entre|frente a|a través de|por medio de|según|gracias a|\p{L}+(?:ando|iendo))\s[^,]{2,80})$/u);
+    if (m && nPalabras(m[1]) >= 4 && nPalabras(m[2]) <= 10 && !tieneSubordinada(m[2]) && !/^(en|con)\s+(cambio|consecuencia|conclusión|resumen|efecto|todo)/i.test(m[2])) {
+      push(mayusInicial(m[2]) + ', ' + low(m[1]), 'el complemento pasa al inicio', 'complemento');
+    }
+    // Participio inicial: "Aplicado en ventanas de tiempo, el KS-test identificó…" -> "El KS-test, aplicado en ventanas de tiempo, identificó…"
+    m = core.match(/^(\p{L}+(?:ado|ido|ada|ida|ados|idos|adas|idas|cho|cha|chos|chas|to|ta|tos|tas)\s[^,]{2,60}),\s+((?:el|la|los|las|este|esta|estos|estas|su|sus)\s(?:[^\s,]+\s){0,3}?)(\p{L}+)(\s.+)$/u);
+    if (m && PASIVA.part.has(m[1].split(/\s+/)[0].toLowerCase()) && PASIVA.formas.has(m[3].toLowerCase())) {
+      push(mayusInicial(m[2].trim()) + ', ' + m[1][0].toLowerCase() + m[1].slice(1) + ', ' + m[3] + m[4], 'el inciso pasa después del sujeto', 'inciso');
+    }
+    // "Lo que interesa para esta tesis es que X" -> "Para esta tesis, interesa que X"
+    m = core.match(/^Lo que (interesa|importa|destaca|resalta|conviene|preocupa)\s+((?:para|en|de|a)\s[^,]+?)\s+es que\s+(.+)$/u);
+    if (m) push(mayusInicial(m[2]) + ', ' + m[1] + ' que ' + m[3], 'se reformula el inicio', 'inicio');
+    // "Es evidencia de que X" -> "Constituye una prueba de que X"
+    m = core.match(/^(Es|Son)\s+(evidencia|prueba|muestra|indicio|reflejo|ejemplo|señal|una muestra|una prueba|una evidencia|un ejemplo|un indicio)\s+(de|del)\s+(.+)$/u);
+    if (m) {
+      const n = m[2].replace(/^(una|un)\s/, '');
+      const alt = { evidencia: 'una muestra', prueba: 'una muestra', muestra: 'una evidencia', indicio: 'una señal', reflejo: 'una muestra', ejemplo: 'una muestra', señal: 'un indicio' }[n] || 'una prueba';
+      push((m[1] === 'Es' ? 'Constituye ' : 'Constituyen ') + alt + ' ' + m[3] + ' ' + m[4], 'se reformula el inicio', 'inicio');
+    }
+    // Atributo identificativo: "el aporte es la separación de funciones" -> "la separación de funciones es el aporte"
+    m = core.match(/^((?:El|La|Los|Las)\s+[^\s,]+(?:\s+(?:de|del)\s+[^\s,]+){0,2})\s+(es|son|fue|fueron)\s+((?:el|la|los|las)\s+[^,]+)$/u);
+    if (m && nPalabras(m[3]) >= 2 && nPalabras(m[3]) <= 10 && !tieneSubordinada(m[3]) && !/\s(para|en|según|durante|desde|con|mediante|sobre|ante)\s/.test(m[3]) && !/(ad|id)[oa]s?$/.test(m[3].split(/\s+/)[1] || '')) {
+      push(mayusInicial(m[3]) + ' ' + m[2] + ' ' + low(m[1]), 'se invierte el atributo', 'atributo');
     }
     // Aposición: "A, un caso en el que B" -> "A. Se trata de un caso en el que B"
     m = core.match(/^(.+?),\s+(un|una|unos|unas)\s+(\p{L}+(?:\s+\p{L}+)?)\s+(en el que|en la que|en el cual|en la cual|donde|que|cuyo|cuya)\s+(.+)$/u);
@@ -558,8 +596,10 @@
       if (gn) push(m[1] + '. ' + PRONOMBRE[gn] + ' ' + m[3], 'se divide en dos oraciones', 'division', true);
     }
     // ", y ..." -> dos oraciones
-    m = core.match(/^(.+?),\s+y\s+(.+)$/u);
-    if (m && nPalabras(m[1]) >= 4 && nPalabras(m[2]) >= 4 && !/,\s+y\s+/.test(m[2])) {
+    m = core.match(/^([^,]+),\s+y\s+([^,]+)$/u);
+    const iniDer = m ? m[2].split(/\s+/)[0].toLowerCase() : '';
+    if (m && nPalabras(m[1]) >= 4 && nPalabras(m[2]) >= 4 &&
+        (DET_GN[iniDer] || GENERO_DE[iniDer] || PASIVA.formas.has(iniDer) || /^(lo|la|los|las|le|les|se|no|nadie|nada|ello|esto|eso|ellos|ellas|su|sus)$/.test(iniDer))) {
       push(m[1] + '. ' + ['Además, ', 'Asimismo, ', 'A su vez, '][Math.floor(h * 3)] + low(m[2]), 'se divide en dos oraciones', 'division', true);
     }
     return out;
@@ -572,7 +612,7 @@
     const pasos = PASOS[opts.intensidad || 'medio'];
     const apagadas = new Set(opts.estructuraOff || []);
     const forzadas = new Set(opts.estructuraOn || []);
-    const low = crearMinuscula(texto);
+    const low = crearMinuscula(opts.contexto || texto, opts._indice);
     const partes = dividirOraciones(texto);
     let texto2 = '';
     const rangos = [];
@@ -658,13 +698,14 @@
   // ---------------------------------------------------------------
   function parafrasear(texto, opts) {
     opts = Object.assign({ seed: 1, intensidad: 'medio', overrides: {}, protegidos: [], personales: [], dominio: 'general', estructura: true, estructuraOff: [], estructuraOn: [] }, opts || {});
+    texto = String(texto).replace(/\r\n?/g, '\n');
     const seed = opts.seed;
     const pSin = PROB[opts.intensidad].sin;
     const overrides = opts.overrides;
     const IX = indices(opts.dominio);
 
     // --- V2: estructura ---
-    const { texto2, rangos } = reestructurar(texto, opts);
+    const { texto2, rangos } = reestructurar(texto, Object.assign({}, opts, { _indice: IX.INDICE }));
 
     // lo que el usuario define en su diccionario prevalece sobre los términos protegidos del área
     const fuentesPersonales = new Set((opts.personales || []).map((g) => g[0].toLowerCase()));
@@ -733,6 +774,8 @@
     grupos.forEach((g, gi) => g.items.forEach((c, li) => {
       // en el diccionario personal solo se reemplaza el término de la izquierda
       if (g.tipo === 'personal' && li > 0) return;
+      // las opciones marcadas con '>' solo sirven de destino
+      if (c[0] === '>') return;
       if (!FR_IDX.has(c)) FR_IDX.set(c, { gi, li });
       FR_MAX = Math.max(FR_MAX, c.split(/\s+/).length);
     }));
@@ -753,14 +796,14 @@
         if (!hit) continue;
         const grupo = grupos[hit.gi];
         const ini = W[k], fin = W[k + L - 1];
-        const opciones = grupo.items.filter((_, i) => i !== hit.li);
+        const opciones = grupo.items.filter((_, i) => i !== hit.li).map((x) => x.replace(/^>/, ''));
         let elegido;
         if (ini in overrides) elegido = overrides[ini];
         else if (grupo.tipo === 'personal' || azar(seed + 5, ini) < Math.max(pSin, 0.85)) elegido = opciones[Math.floor(azar(seed, ini) * opciones.length)];
         else elegido = '__orig__';
         const id = cambios.length;
         const orig = toks.slice(ini, fin + 1).map((t) => t.t).join('');
-        cambios.push({ id, tipo: grupo.tipo, ini, fin, original: orig, opciones: grupo.items.map((c) => capitalizarComo(orig, c)), elegido: null });
+        cambios.push({ id, tipo: grupo.tipo, ini, fin, original: orig, opciones: grupo.items.map((c) => capitalizarComo(orig, c.replace(/^>/, ''))), elegido: null });
         if (elegido !== '__orig__' && elegido.toLowerCase() !== orig.toLowerCase()) {
           const nuevo = capitalizarComo(orig, elegido);
           cambios[id].elegido = nuevo;
@@ -794,7 +837,7 @@
       const adj = cands.find((x) => x.pos === 'a');
       let c = null;
       if (sust && (prevEsDet || (!IX.SUST[sust.gi].needsDet && !verb))) c = sust;
-      else if (verb && !prevEsDet) c = verb;
+      else if (verb && !prevEsDet && !(prev && /^(es|son|era|eran|fue|fueron|ser|sea|una|un|otra|otro|como)$/i.test(prev.out))) c = verb;
       else if (adj) c = adj;
       if (!c) return;
       const sig = sigContiguo(ti);
@@ -855,6 +898,8 @@
         if (GENERO_DE[lw]) {
           const nuevo = GENERO_DE[lw][gen];
           if (nuevo !== lw) { tk.out = capitalizarComo(tk.out, nuevo); if (!tk.cls) tk.cls = 'concordancia'; }
+          // "esta misma idea", "la nueva herramienta": se sigue hasta el artículo
+          if (/^(mism[oa]s?|nuev[oa]s?|primer[oa]?|ciert[oa]s?|otr[oa]s?|much[oa]s?|poc[oa]s?)$/.test(lw)) { cur = pidx; continue; }
           if (lw === 'la' && gen === 'm') {
             const pp = prevContiguo(pidx);
             if (pp != null && /^(de|a)$/i.test(toks[pp].out)) {
@@ -871,13 +916,15 @@
         if (/(ente|ante|al|ar|ble|il|ior)$/.test(lw) && !STOP_SN.has(lw)) { cur = pidx; continue; }
         break;
       }
-      const s = sigContiguo(ti);
-      if (s != null) {
-        const tk = toks[s];
-        if (!tk.prot && esAdjVariable(tk.out.toLowerCase())) {
-          tk.out = cambiarGeneroAdj(tk.out, gen);
-          if (!tk.cls) tk.cls = 'concordancia';
-        }
+      let sx = sigContiguo(ti);
+      for (let paso = 0; paso < 3 && sx != null; paso++) {
+        const tk = toks[sx];
+        if (tk.prot || !esAdjVariable(tk.out.toLowerCase())) break;
+        tk.out = cambiarGeneroAdj(tk.out, gen);
+        if (!tk.cls) tk.cls = 'concordancia';
+        const conj = sigContiguo(sx);
+        if (conj == null || !/^(y|e|o|u|pero|aunque)$/i.test(toks[conj].out)) break;
+        sx = sigContiguo(conj);
       }
       // sujeto de una pasiva o atributo: "la limpieza del área fue realizada" -> "el aseo del área fue realizado"
       // (solo si el sustantivo es el núcleo, no un complemento como "de las herramientas")
@@ -939,6 +986,7 @@
     return (sinTilde(texto.toLowerCase()).match(/[\p{L}\d]+/gu) || []);
   }
   function similitud(original, resultado) {
+    original = String(original).replace(/\r\n?/g, '\n');
     const a = palabrasNorm(original), b = palabrasNorm(resultado);
     const tri = (arr) => { const s = []; for (let i = 0; i + 2 < arr.length; i++) s.push(arr[i] + ' ' + arr[i + 1] + ' ' + arr[i + 2]); return s; };
     const ta = tri(a), tb = tri(b);

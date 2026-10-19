@@ -55,13 +55,13 @@
       ['por lo que', 'de modo que', 'de manera que', 'así que'],
       ['constantemente', 'continuamente', 'de forma constante'],
       ['muy rápido', 'con gran rapidez', 'muy rápidamente'],
-      ['en tiempo real', 'de forma inmediata', 'al instante'],
+      ['sin necesidad', 'innecesariamente'],
       ['en la práctica', 'en términos prácticos', 'en la realidad'],
       ['frente a', 'en comparación con'],
       ['pusieron a prueba', 'evaluaron', 'sometieron a prueba'],
       ['puso a prueba', 'evaluó', 'sometió a prueba'],
-      ['en el que', 'en el cual', 'donde'],
-      ['en la que', 'en la cual', 'donde'],
+      ['en el que', 'en el cual', '>donde'],
+      ['en la que', 'en la cual', '>donde'],
       ['trabajaron con', 'se centraron en', 'abordaron'],
       ['trabajó con', 'se centró en', 'abordó'],
       ['sin afectar', 'sin comprometer', 'sin perjudicar'],
@@ -99,7 +99,6 @@
       { g: [['tarea', 'f'], ['labor', 'f'], ['actividad', 'f']] },
       { g: [['requisito', 'm'], ['condición', 'f']] },
       { g: [['aporte', 'm'], ['contribución', 'f']] },
-      { g: [['error', 'm'], ['falla', 'f']] },
       { g: [['uso', 'm'], ['utilización', 'f']] },
       { g: [['mejora', 'f'], ['optimización', 'f'], ['perfeccionamiento', 'm']], needsDet: true },
       { g: [['desempeño', 'm'], ['rendimiento', 'm']] },
@@ -120,7 +119,6 @@
       { g: [['táctica', 'f'], ['estrategia', 'f']] },
       { g: [['plataforma', 'f'], ['solución', 'f']], needsDet: true },
       { g: [['estabilidad', 'f'], ['equilibrio', 'm']], needsDet: true },
-      { g: [['prueba', 'f'], ['ensayo', 'm']], needsDet: true },
     ],
     adj: [
       ['importante', 'relevante', 'fundamental', 'esencial', 'primordial'],
@@ -202,7 +200,7 @@
     ],
     protegidos: ['drift', 'data drift', 'concept drift', 'mlops', 'pipeline', 'pipelines', 'phishing', 'machine learning', 'deep learning',
       'dataset', 'datasets', 'framework', 'microservicios', 'inferencia', 'latencia', 'autoescalado', 'contenedores', 'deriva',
-      'reentrenamiento', 'reentrenar', 'software', 'hardware', 'big data', 'cloud', 'feedback', 'benchmark', 'stakeholders', 'et al', 'se trata de', 'se trata del', 'se trataba de', 'se trataba del', 'se tratan de'],
+      'reentrenamiento', 'reentrenar', 'software', 'hardware', 'big data', 'cloud', 'feedback', 'benchmark', 'stakeholders', 'et al', 'en tiempo real', 'error', 'errores', 'prueba de kolmogorov-smirnov', 'ks-test', 'se trata de', 'se trata del', 'se trataba de', 'se trataba del', 'se tratan de'],
   };
 
   const DOMINIOS = {
@@ -248,7 +246,6 @@
     datos: {
       nombre: 'Sistemas y datos',
       frases: [
-        ['en tiempo real', 'de forma inmediata'],
         ['toma de decisiones', 'proceso de decisión'],
       ],
       sust: [
@@ -313,11 +310,13 @@
     'almacenar', 'entregar', 'presentar', 'aprobar', 'probar', 'mostrar', 'demostrar', 'encontrar',
     'comprobar', 'consolidar', 'escribir', 'resolver', 'abrir', 'cubrir', 'medir', 'tomar', 'llevar',
     'formular', 'proponer', 'obtener', 'hacer', 'poner', 'activar', 'reducir', 'recibir', 'monitorear',
-    'calcular', 'construir', 'atender', 'mantener', 'incluir', 'definir', 'cuantificar', 'priorizar', 'ubicar',
+    'calcular', 'construir', 'atender', 'seguir', 'elegir', 'comparar', 'probar', 'simular', 'agrupar', 'combinar', 'separar', 'promover', 'lanzar', 'emitir', 'medir', 'bajar', 'mantener', 'incluir', 'definir', 'cuantificar', 'priorizar', 'ubicar',
   ];
 
   // Irregularidades puntuales en los tiempos que se usan.
   const IRREGULARES = {
+    seguir: { ger: 'siguiendo', pres3s: 'sigue', pres3p: 'siguen', pret3s: 'siguió', pret3p: 'siguieron', subj3s: 'siga', subj3p: 'sigan' },
+    elegir: { ger: 'eligiendo', pres3s: 'elige', pres3p: 'eligen', pret3s: 'eligió', pret3p: 'eligieron', subj3s: 'elija', subj3p: 'elijan' },
     devolver: { part: 'devuelto', pres3s: 'devuelve', pres3p: 'devuelven', subj3s: 'devuelva', subj3p: 'devuelvan' },
     reducir: { pret3s: 'redujo', pret3p: 'redujeron', pres3s: 'reduce', pres3p: 'reducen', subj3s: 'reduzca', subj3p: 'reduzcan' },
     construir: { ger: 'construyendo', pres3s: 'construye', pres3p: 'construyen', pret3s: 'construyó', pret3p: 'construyeron', subj3s: 'construya', subj3p: 'construyan' },
