@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Parafraseador por reglas</title>
-<meta name="description" content="Parafraseo de textos en español con reglas lingüísticas: conectores, sinónimos y concordancia. Sin IA, todo ocurre en tu navegador.">
+<meta name="description" content="Parafraseo de textos en español con reglas lingüísticas: estructura de oraciones, conectores, sinónimos y concordancia. Sin IA, todo ocurre en tu navegador.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap" rel="stylesheet">
 <style>
   :root {
     --paper: #e9eef3;
@@ -20,6 +20,8 @@
     --mk-conector: #2f5bd3;
     --mk-sinonimo: #0e7a6b;
     --mk-conc: #a3640a;
+    --mk-estr: #7a3fa8;
+    --mk-pers: #b0306a;
     --overlap: #fbe0d2;
     --ok: #0e7a6b; --mid: #a3640a; --high: #b3361b;
     --radius-s: 6px; --radius-m: 10px;
@@ -28,14 +30,14 @@
     :root:not([data-theme="light"]) {
       --paper: #121820; --sheet: #1a222d; --ink: #e3e9f0; --muted: #98a5b5; --line: #2e3a49;
       --accent: #8fa8f0; --accent-ink: #0e1420;
-      --mk-conector: #8fa8f0; --mk-sinonimo: #5fcfba; --mk-conc: #e6ac55; --overlap: #4a2a1f;
+      --mk-conector: #8fa8f0; --mk-sinonimo: #5fcfba; --mk-conc: #e6ac55; --mk-estr: #c79bea; --mk-pers: #f08cb8; --overlap: #4a2a1f;
       --ok: #5fcfba; --mid: #e6ac55; --high: #f08a6e;
     }
   }
   :root[data-theme="dark"] {
     --paper: #121820; --sheet: #1a222d; --ink: #e3e9f0; --muted: #98a5b5; --line: #2e3a49;
     --accent: #8fa8f0; --accent-ink: #0e1420;
-    --mk-conector: #8fa8f0; --mk-sinonimo: #5fcfba; --mk-conc: #e6ac55; --overlap: #4a2a1f;
+    --mk-conector: #8fa8f0; --mk-sinonimo: #5fcfba; --mk-conc: #e6ac55; --mk-estr: #c79bea; --mk-pers: #f08cb8; --overlap: #4a2a1f;
     --ok: #5fcfba; --mid: #e6ac55; --high: #f08a6e;
   }
   * { box-sizing: border-box; }
@@ -45,14 +47,21 @@
     font: 16px/1.5 "Atkinson Hyperlegible", system-ui, sans-serif;
   }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 16px 56px; }
-  header { max-width: 62ch; margin-bottom: 28px; }
+  header { max-width: 64ch; margin-bottom: 24px; }
   h1 { font: 600 2rem/1.15 "Literata", Georgia, serif; margin: 0 0 8px; letter-spacing: -0.01em; }
   header p { margin: 0; color: var(--muted); }
 
-  .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; margin-bottom: 16px; }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--sheet); padding: 3px; }
   .seg button { border: 0; background: none; color: var(--muted); font: inherit; padding: 6px 14px; border-radius: 7px; cursor: pointer; }
   .seg button[aria-pressed="true"] { background: var(--paper); color: var(--ink); font-weight: 700; }
+  .field { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+  select { font: inherit; color: var(--ink); background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 8px 10px; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink); user-select: none; }
+  .switch input { appearance: none; width: 38px; height: 22px; border-radius: 99px; background: var(--line); position: relative; cursor: pointer; margin: 0; transition: background .2s; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--sheet); transition: transform .2s; }
+  .switch input:checked { background: var(--mk-estr); }
+  .switch input:checked::after { transform: translateX(16px); }
   .btn { font: inherit; border-radius: var(--radius-m); padding: 9px 18px; cursor: pointer; border: 1px solid var(--line); background: var(--sheet); color: var(--ink); }
   .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
   .btn:disabled { opacity: .45; cursor: default; }
@@ -60,12 +69,12 @@
   :focus-visible { outline: 3px solid var(--mk-conector); outline-offset: 2px; }
 
   .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .pane { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius-m); display: flex; flex-direction: column; min-height: 360px; }
+  .pane { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius-m); display: flex; flex-direction: column; min-height: 380px; min-width: 0; }
   .pane h2 { font-size: .95rem; font-weight: 700; margin: 0; padding: 12px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
   .pane h2 span { color: var(--muted); font-weight: 400; }
   textarea#original, #resultado {
     flex: 1; width: 100%; border: 0; background: transparent; color: var(--ink);
-    font: 1.06rem/1.75 "Literata", Georgia, serif; padding: 16px 18px; resize: vertical; min-height: 320px;
+    font: 1.06rem/1.8 "Literata", Georgia, serif; padding: 16px 18px; resize: vertical; min-height: 340px;
   }
   textarea#original:focus { outline: none; }
   #resultado { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -76,9 +85,20 @@
   .mk:hover, .mk[aria-expanded="true"] { background: color-mix(in srgb, currentColor 10%, transparent); }
   .mk.conector { text-decoration-line: underline; text-decoration-style: double; text-decoration-color: var(--mk-conector); }
   .mk.sinonimo { text-decoration-line: underline; text-decoration-color: var(--mk-sinonimo); }
+  .mk.personal { text-decoration-line: underline; text-decoration-style: wavy; text-decoration-thickness: 1.5px; text-decoration-color: var(--mk-pers); }
   .mk.original { text-decoration-line: underline; text-decoration-style: dashed; text-decoration-color: var(--muted); }
   .conc { text-decoration: underline dotted var(--mk-conc) 2px; text-underline-offset: 4px; }
   .solap { background: var(--overlap); border-radius: 2px; }
+  .estr { border-radius: 4px; transition: background .15s; }
+  .estr.foco { background: color-mix(in srgb, var(--mk-estr) 12%, transparent); }
+  .pin {
+    display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+    margin-right: 6px; vertical-align: -3px; border-radius: 50%; border: 2px solid var(--mk-estr);
+    background: var(--mk-estr); color: var(--sheet); font: 700 13px/1 "Atkinson Hyperlegible", sans-serif; cursor: pointer; padding: 0;
+  }
+  .pin::before { content: "↻"; }
+  .pin.off { background: transparent; }
+  .pin.off::before { content: ""; }
 
   .meter { padding: 14px 18px; border-top: 1px solid var(--line); }
   .meter-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
@@ -92,29 +112,43 @@
   .sw { display: inline-block; width: 22px; margin-right: 6px; vertical-align: middle; border-bottom: 2px solid; }
   .sw.c { border-bottom: 4px double var(--mk-conector); }
   .sw.s { border-color: var(--mk-sinonimo); }
+  .sw.p { border-bottom: 2px dashed var(--mk-pers); }
   .sw.k { border-bottom: 2px dotted var(--mk-conc); }
   .sw.o { height: 12px; border: 0; background: var(--overlap); border-radius: 2px; }
+  .sw.e { width: 12px; height: 12px; border: 0; border-radius: 50%; background: var(--mk-estr); }
 
   .extras { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
-  .card { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 16px 18px; }
+  .card { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 16px 18px; min-width: 0; }
+  .card.wide { grid-column: 1 / -1; }
   .card h3 { margin: 0 0 4px; font-size: 1rem; }
   .card p.help { margin: 0 0 10px; color: var(--muted); font-size: .92rem; }
-  .card textarea, .card input { width: 100%; font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 8px 10px; }
-  .row { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-bottom: 8px; }
-  .cita { margin-top: 10px; font: 1rem/1.6 "Literata", serif; }
-  .cita div { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
-  .cita button { font: inherit; font-size: .85rem; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 4px; }
+  .card textarea, .card input, .card select { width: 100%; font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 8px 10px; }
+  .card label { display: block; font-size: .88rem; color: var(--muted); margin-bottom: 4px; }
+  .grid-ref { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .grid-ref > div { grid-column: span 2; }
+  .grid-ref > .s3 { grid-column: span 3; }
+  .grid-ref > .s6 { grid-column: span 6; }
+  .grid-ref > .s1 { grid-column: span 1; }
+  .ref-out { margin-top: 14px; border-top: 1px solid var(--line); }
+  .ref-out > div { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .ref-out .lbl { font-size: .85rem; color: var(--muted); display: block; margin-bottom: 2px; }
+  .ref-out .val { display: block; font: 1rem/1.6 "Literata", serif; overflow-wrap: anywhere; }
+  .ref-out .val.hanging { padding-left: 1.6em; text-indent: -1.6em; }
+  .linkbtn { font: inherit; font-size: .88rem; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 4px; white-space: nowrap; }
 
-  footer { margin-top: 28px; max-width: 70ch; color: var(--muted); font-size: .9rem; }
+  footer { margin-top: 28px; max-width: 72ch; color: var(--muted); font-size: .9rem; }
+  footer p { margin: 0 0 8px; }
 
-  /* menú de alternativas */
-  #menu { position: absolute; z-index: 10; background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius-m); box-shadow: 0 8px 24px rgb(15 25 40 / .18); padding: 6px; min-width: 190px; display: none; }
+  /* menú */
+  #menu { position: absolute; z-index: 10; background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius-m); box-shadow: 0 8px 24px rgb(15 25 40 / .18); padding: 6px; min-width: 200px; max-width: min(420px, calc(100vw - 24px)); display: none; }
   #menu.open { display: block; }
   #menu p { margin: 4px 8px 6px; color: var(--muted); font-size: .82rem; }
+  #menu blockquote { margin: 4px 8px 8px; padding: 8px 10px; background: var(--paper); border-radius: 6px; font: .95rem/1.55 "Literata", serif; color: var(--ink); }
   #menu button { display: block; width: 100%; text-align: left; font: 1rem "Literata", serif; color: var(--ink); background: none; border: 0; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
   #menu button:hover, #menu button:focus-visible { background: var(--paper); }
   #menu button[aria-current="true"] { font-weight: 600; }
   #menu button.orig { font-family: "Atkinson Hyperlegible", sans-serif; font-size: .9rem; color: var(--muted); border-top: 1px solid var(--line); border-radius: 0 0 6px 6px; margin-top: 4px; }
+  #menu button.accion { font-family: "Atkinson Hyperlegible", sans-serif; font-size: .95rem; color: var(--accent); font-weight: 700; }
 
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 16px; border-radius: 99px; font-size: .92rem; opacity: 0; pointer-events: none; transition: opacity .2s; }
   .toast.show { opacity: 1; }
@@ -123,6 +157,8 @@
     .panes, .extras { grid-template-columns: 1fr; }
     h1 { font-size: 1.6rem; }
     .spacer { display: none; }
+    .grid-ref > div, .grid-ref > .s3 { grid-column: span 6; }
+    .grid-ref > .s1 { grid-column: span 2; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -131,7 +167,7 @@
 <div class="wrap">
   <header>
     <h1>Parafraseador por reglas</h1>
-    <p>Cambia conectores y sinónimos, y ajusta la concordancia de género. Funciona con reglas lingüísticas fijas, sin inteligencia artificial, y tu texto no sale de este navegador.</p>
+    <p>Reordena oraciones, cambia conectores y sinónimos, y ajusta la concordancia. Funciona con reglas lingüísticas fijas, sin inteligencia artificial, y tu texto no sale de este navegador.</p>
   </header>
 
   <div class="toolbar">
@@ -140,11 +176,13 @@
       <button type="button" data-int="medio" aria-pressed="true">Medio</button>
       <button type="button" data-int="fuerte">Fuerte</button>
     </div>
+    <label class="field">Área
+      <select id="dominio" aria-label="Área del texto"></select>
+    </label>
+    <label class="switch"><input type="checkbox" id="estructura" checked> Reordenar oraciones</label>
+    <span class="spacer"></span>
     <button class="btn primary" id="btnParafrasear" type="button">Parafrasear</button>
     <button class="btn" id="btnVariante" type="button" disabled>Otra variante</button>
-    <span class="spacer"></span>
-    <button class="btn" id="btnEjemplo" type="button">Cargar ejemplo</button>
-    <button class="btn" id="btnCopiar" type="button" disabled>Copiar resultado</button>
   </div>
 
   <div class="panes">
@@ -154,7 +192,7 @@
     </section>
     <section class="pane">
       <h2>Resultado <span id="cuentaRes"></span></h2>
-      <div id="resultado" aria-live="polite"><span class="vacio">Pega un texto a la izquierda y pulsa Parafrasear. Luego haz clic en cualquier palabra subrayada para elegir otra opción o volver a la original.</span></div>
+      <div id="resultado" aria-live="polite"><span class="vacio">Pega un texto a la izquierda y pulsa Parafrasear, o prueba con <button type="button" class="linkbtn" id="btnEjemplo">un texto de ejemplo</button>. Haz clic en cualquier palabra subrayada o en un círculo morado para elegir otra opción o deshacer el cambio.</span></div>
       <div class="meter" id="meter" hidden>
         <div class="meter-top">
           <span>Similitud con el original</span>
@@ -164,10 +202,16 @@
         <p id="consejo"></p>
       </div>
       <div class="legend" id="leyenda" hidden>
+        <span><i class="sw e"></i><b id="nEstr">0</b> oraciones reordenadas</span>
         <span><i class="sw c"></i><b id="nCon">0</b> conectores</span>
         <span><i class="sw s"></i><b id="nSin">0</b> sinónimos</span>
+        <span id="legPers" hidden><i class="sw p"></i><b id="nPers">0</b> de tu diccionario</span>
         <span><i class="sw k"></i><b id="nConc">0</b> ajustes de concordancia</span>
         <span><i class="sw o"></i>igual al original</span>
+      </div>
+      <div class="legend" id="acciones" hidden>
+        <button class="btn" id="btnCopiar" type="button">Copiar resultado</button>
+        <button class="btn" id="btnDescargar" type="button">Descargar .txt</button>
       </div>
     </section>
   </div>
@@ -175,77 +219,139 @@
   <div class="extras">
     <section class="card">
       <h3>Términos que no se deben cambiar</h3>
-      <p class="help">Separados por comas. Las citas entre comillas, las referencias con año, las siglas y los nombres propios ya se respetan solos.</p>
-      <textarea id="protegidos" rows="3" placeholder="data drift, metodología 5S, inventario"></textarea>
+      <p class="help">Separados por comas. Ya se respetan solas las citas entre comillas, las referencias con año, las siglas, los nombres propios y los términos técnicos del área elegida.</p>
+      <textarea id="protegidos" rows="3" placeholder="data drift, metodología 5S, Andes Express"></textarea>
     </section>
     <section class="card">
-      <h3>Cita de la fuente (APA 7)</h3>
-      <p class="help">Parafrasear no reemplaza la cita: el texto sigue basándose en otro autor.</p>
-      <div class="row">
-        <input id="autor" placeholder="Apellido del autor o autores" aria-label="Apellido del autor">
-        <input id="anio" placeholder="Año" inputmode="numeric" aria-label="Año">
+      <h3>Tu diccionario</h3>
+      <p class="help">Una línea por término: lo que está a la izquierda del signo = se reemplaza por una de las opciones de la derecha. Usa equivalentes del mismo género y número. Tiene prioridad sobre el diccionario general.</p>
+      <textarea id="personales" rows="3" placeholder="almacén = depósito, bodega&#10;merma = pérdida de producto"></textarea>
+    </section>
+
+    <section class="card wide">
+      <h3>Referencia de la fuente (APA 7)</h3>
+      <p class="help">Parafrasear no reemplaza la cita: el texto sigue basándose en otro autor. Completa los datos y copia la cita y la referencia.</p>
+      <div class="grid-ref">
+        <div><label for="refTipo">Tipo de fuente</label>
+          <select id="refTipo">
+            <option value="libro">Libro</option>
+            <option value="articulo">Artículo de revista</option>
+            <option value="tesis">Tesis</option>
+            <option value="web">Página web</option>
+          </select></div>
+        <div class="s3"><label for="refAutores">Autores (separados por punto y coma)</label><input id="refAutores" placeholder="Pérez, J.; García, M. A."></div>
+        <div class="s1"><label for="refAnio">Año</label><input id="refAnio" inputmode="numeric" placeholder="2021"></div>
+        <div class="s6"><label for="refTitulo">Título</label><input id="refTitulo" placeholder="Gestión de inventarios en pequeñas empresas"></div>
+        <div class="s3" data-para="libro articulo tesis web"><label for="refFuente" id="lblFuente">Editorial</label><input id="refFuente"></div>
+        <div class="s1" data-para="articulo"><label for="refVol">Volumen</label><input id="refVol"></div>
+        <div class="s1" data-para="articulo"><label for="refNum">Número</label><input id="refNum"></div>
+        <div class="s1" data-para="articulo"><label for="refPag">Páginas</label><input id="refPag" placeholder="45-60"></div>
+        <div class="s3" data-para="tesis"><label for="refGrado">Grado</label>
+          <select id="refGrado"><option>Tesis de licenciatura</option><option>Tesis de maestría</option><option>Tesis doctoral</option></select></div>
+        <div class="s3" data-para="tesis"><label for="refRepo">Repositorio</label><input id="refRepo" placeholder="Repositorio institucional UNT"></div>
+        <div class="s6"><label for="refUrl">DOI o URL</label><input id="refUrl" placeholder="https://doi.org/..."></div>
       </div>
-      <div class="cita" id="cita" hidden>
-        <div><span id="citaPar"></span><button type="button" data-copy="citaPar">Copiar</button></div>
-        <div><span id="citaNar"></span><button type="button" data-copy="citaNar">Copiar</button></div>
+      <div class="ref-out" id="refOut" hidden>
+        <div><div><span class="lbl">Cita parentética</span><span class="val" id="citaPar"></span></div><button type="button" class="linkbtn" data-copy="citaPar">Copiar</button></div>
+        <div><div><span class="lbl">Cita narrativa</span><span class="val" id="citaNar"></span></div><button type="button" class="linkbtn" data-copy="citaNar">Copiar</button></div>
+        <div><div><span class="lbl">Referencia</span><span class="val hanging" id="referencia"></span></div><button type="button" class="linkbtn" data-copy="referencia">Copiar</button></div>
       </div>
     </section>
   </div>
 
   <footer>
-    <p>El indicador compara secuencias de tres palabras, como hacen los detectores de plagio. Las partes resaltadas siguen iguales al original: conviene reescribirlas a mano. Revisa siempre el resultado, porque un sinónimo puede no encajar en todos los contextos.</p>
+    <p>El indicador compara secuencias de tres palabras, como hacen los detectores de plagio. Las partes resaltadas siguen iguales al original: conviene reescribirlas a mano.</p>
+    <p>Las reglas no entienden el contexto como una persona. Lee siempre el resultado completo para confirmar que conserva el sentido.</p>
   </footer>
 </div>
 
-<div id="menu" role="menu" aria-label="Alternativas"></div>
+<div id="menu" role="menu" aria-label="Opciones"></div>
 <div class="toast" id="toast" role="status"></div>
 
+<script src="diccionario.js"></script>
 <script src="engine.js"></script>
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
   const P = window.Parafraseador;
-  const state = { intensidad: 'medio', seed: 1, overrides: {}, ultimo: null, textoBase: '' };
+  const state = { intensidad: 'medio', seed: 1, overrides: {}, estructuraOff: new Set(), ultimo: null, textoBase: '' };
 
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
   };
-  $('protegidos').value = store.get('pp_protegidos') || '';
-  const intGuardada = store.get('pp_intensidad');
-  if (intGuardada) setIntensidad(intGuardada, false);
 
+  // --- controles ---
+  P.DOMINIOS.forEach((d) => { const o = document.createElement('option'); o.value = d.id; o.textContent = d.nombre; $('dominio').appendChild(o); });
+  $('dominio').value = store.get('pp_dominio') || 'general';
+  $('estructura').checked = store.get('pp_estructura') !== '0';
+  $('protegidos').value = store.get('pp_protegidos') || '';
+  $('personales').value = store.get('pp_personales') || '';
+  setIntensidad(store.get('pp_intensidad') || 'medio', false);
+
+  function reiniciarElecciones() { state.overrides = {}; state.estructuraOff = new Set(); }
   function setIntensidad(v, rerun) {
     state.intensidad = v;
     document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.int === v)));
     store.set('pp_intensidad', v);
-    if (rerun && state.ultimo) { state.overrides = {}; ejecutar(); }
+    if (rerun && state.ultimo) { reiniciarElecciones(); ejecutar(); }
   }
   document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => setIntensidad(b.dataset.int, true)));
+  $('dominio').addEventListener('change', () => { store.set('pp_dominio', $('dominio').value); if (state.ultimo) { reiniciarElecciones(); ejecutar(); } });
+  $('estructura').addEventListener('change', () => { store.set('pp_estructura', $('estructura').checked ? '1' : '0'); if (state.ultimo) { reiniciarElecciones(); ejecutar(); } });
 
   const contar = (t) => (t.trim().match(/\S+/g) || []).length;
   $('original').addEventListener('input', () => { $('cuentaOrig').textContent = contar($('original').value) + ' palabras'; });
 
-  function protegidos() { return $('protegidos').value.split(',').map((s) => s.trim()).filter(Boolean); }
-  $('protegidos').addEventListener('change', () => { store.set('pp_protegidos', $('protegidos').value); if (state.ultimo) ejecutar(); });
+  const listaProtegidos = () => $('protegidos').value.split(',').map((s) => s.trim()).filter(Boolean);
+  ['protegidos', 'personales'].forEach((id) => $(id).addEventListener('change', () => {
+    store.set('pp_' + id, $(id).value);
+    if (state.ultimo) { state.overrides = {}; ejecutar(); }
+  }));
 
   function ejecutar() {
     const texto = $('original').value;
     if (!texto.trim()) { toast('Primero pega un texto en el cuadro de la izquierda.'); $('original').focus(); return; }
-    if (texto !== state.textoBase) { state.overrides = {}; state.textoBase = texto; }
-    const r = P.parafrasear(texto, { seed: state.seed, intensidad: state.intensidad, overrides: state.overrides, protegidos: protegidos() });
+    if (texto !== state.textoBase) { reiniciarElecciones(); state.textoBase = texto; }
+    const r = P.parafrasear(texto, {
+      seed: state.seed, intensidad: state.intensidad, overrides: state.overrides,
+      protegidos: listaProtegidos(), personales: P.leerPersonales($('personales').value),
+      dominio: $('dominio').value, estructura: $('estructura').checked, estructuraOff: [...state.estructuraOff],
+    });
     state.ultimo = r;
     render(texto, r);
   }
 
+  // --- render ---
   function render(texto, r) {
     cerrarMenu();
     const sim = P.similitud(texto, r.resultado);
     const out = $('resultado');
     out.textContent = '';
-    let w = 0;
+    const estrPorSid = new Map(r.estructuras.map((e) => [e.sid, e]));
+    let w = 0, contenedor = out, sidActual = null;
     const reW = /([\p{L}\p{M}\d]+)/u;
+
     r.segmentos.forEach((seg) => {
+      // abrir o cerrar el envoltorio de oración reestructurada
+      if (seg.sid !== sidActual) {
+        contenedor = out; sidActual = seg.sid;
+        if (seg.sid != null && estrPorSid.has(seg.sid)) {
+          const e = estrPorSid.get(seg.sid);
+          contenedor = document.createElement('span');
+          contenedor.className = 'estr';
+          contenedor.dataset.sid = seg.sid;
+          const pin = document.createElement('button');
+          pin.type = 'button';
+          pin.className = 'pin' + (e.activa ? '' : ' off');
+          pin.dataset.sid = seg.sid;
+          pin.setAttribute('aria-haspopup', 'menu');
+          pin.setAttribute('aria-expanded', 'false');
+          pin.setAttribute('aria-label', e.activa ? 'Oración reordenada: ' + e.regla : 'Oración sin reordenar');
+                    contenedor.appendChild(pin);
+          out.appendChild(contenedor);
+        }
+      }
       if (seg.cid != null) {
         const ch = r.cambios[seg.cid];
         const el = document.createElement('span');
@@ -257,11 +363,13 @@
         el.setAttribute('aria-expanded', 'false');
         el.title = ch.elegido ? 'Original: ' + ch.original : 'Sin cambiar';
         el.dataset.cid = seg.cid;
-        out.appendChild(el);
+        contenedor.appendChild(el);
         w += (seg.text.match(/[\p{L}\p{M}\d]+/gu) || []).length;
         return;
       }
-      const parent = seg.cls === 'concordancia' ? Object.assign(document.createElement('span'), { className: 'conc', title: 'Ajuste de concordancia' }) : out;
+      const parent = seg.cls === 'concordancia'
+        ? Object.assign(document.createElement('span'), { className: 'conc', title: 'Ajuste de concordancia' })
+        : contenedor;
       seg.text.split(reW).forEach((part, i) => {
         if (!part) return;
         if (i % 2 === 1) {
@@ -273,50 +381,72 @@
           const s = document.createElement('span'); s.className = 'solap'; s.textContent = part; parent.appendChild(s);
         } else parent.appendChild(document.createTextNode(part));
       });
-      if (parent !== out) out.appendChild(parent);
+      if (parent !== contenedor) contenedor.appendChild(parent);
     });
 
     $('cuentaRes').textContent = contar(r.resultado) + ' palabras';
-    $('meter').hidden = false; $('leyenda').hidden = false;
+    ['meter', 'leyenda', 'acciones'].forEach((id) => { $(id).hidden = false; });
     $('pct').textContent = sim.porcentaje + '%';
-    const barra = $('barra');
-    barra.style.width = sim.porcentaje + '%';
+    $('barra').style.width = sim.porcentaje + '%';
     let color = 'var(--ok)', msg;
-    if (sim.porcentaje >= 60) { color = 'var(--high)'; msg = 'Muy parecido al original. Sube la intensidad o reescribe a mano las partes resaltadas.'; }
-    else if (sim.porcentaje >= 30) { color = 'var(--mid)'; msg = 'Parecido moderado. Revisa las partes resaltadas y cambia el orden de alguna oración.'; }
+    if (sim.porcentaje >= 60) { color = 'var(--high)'; msg = 'Muy parecido al original. Sube la intensidad, activa el reordenamiento o reescribe a mano las partes resaltadas.'; }
+    else if (sim.porcentaje >= 30) { color = 'var(--mid)'; msg = 'Parecido moderado. Revisa las partes resaltadas o pide otra variante.'; }
     else msg = 'Buen distanciamiento del original. Léelo completo para confirmar que conserva el sentido.';
-    barra.style.background = color;
+    $('barra').style.background = color;
     $('pct').style.color = color;
     $('consejo').textContent = msg;
+    $('nEstr').textContent = r.stats.estructuras;
     $('nCon').textContent = r.stats.conectores;
     $('nSin').textContent = r.stats.sinonimos;
+    $('nPers').textContent = r.stats.personales;
+    $('legPers').hidden = !r.stats.personales;
     $('nConc').textContent = r.stats.concordancia;
-    $('btnCopiar').disabled = false;
     $('btnVariante').disabled = false;
   }
 
-  // --- menú de alternativas ---
+  // --- menú ---
   const menu = $('menu');
   let ancla = null;
-  function abrirMenu(el) {
+  function boton(texto, clase, fn) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = texto;
+    if (clase) b.className = clase;
+    b.addEventListener('click', fn);
+    menu.appendChild(b);
+    return b;
+  }
+  function abrirMenuCambio(el) {
     const ch = state.ultimo.cambios[+el.dataset.cid];
     menu.textContent = '';
-    const p = document.createElement('p'); p.textContent = ch.tipo === 'conector' ? 'Conector' : 'Sinónimo'; menu.appendChild(p);
+    const p = document.createElement('p');
+    p.textContent = { conector: 'Conector', sinonimo: 'Sinónimo', personal: 'De tu diccionario' }[ch.tipo] || 'Cambio';
+    menu.appendChild(p);
     const actual = (ch.elegido || ch.original).toLowerCase();
     ch.opciones.forEach((op) => {
       if (op.toLowerCase() === ch.original.toLowerCase()) return;
-      const b = document.createElement('button');
-      b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = op;
+      const b = boton(op, '', () => elegir(ch, op));
       if (op.toLowerCase() === actual) b.setAttribute('aria-current', 'true');
-      b.addEventListener('click', () => elegir(ch, op));
-      menu.appendChild(b);
     });
-    const o = document.createElement('button');
-    o.type = 'button'; o.className = 'orig'; o.setAttribute('role', 'menuitem');
-    o.textContent = 'Dejar «' + ch.original + '»';
-    o.addEventListener('click', () => elegir(ch, '__orig__'));
-    menu.appendChild(o);
-
+    boton('Dejar «' + ch.original + '»', 'orig', () => elegir(ch, '__orig__'));
+    posicionar(el);
+  }
+  function abrirMenuEstructura(pin) {
+    const sid = +pin.dataset.sid;
+    const e = state.ultimo.estructuras.find((x) => x.sid === sid);
+    menu.textContent = '';
+    const p = document.createElement('p');
+    p.textContent = e.activa ? 'Oración reordenada: ' + e.regla.toLowerCase() : 'Esta oración se puede reordenar: ' + e.regla.toLowerCase();
+    menu.appendChild(p);
+    if (e.activa) {
+      const q = document.createElement('blockquote'); q.textContent = e.original; menu.appendChild(q);
+      boton('Volver a la estructura original', 'accion', () => { state.estructuraOff.add(sid); state.overrides = {}; ejecutar(); });
+    } else {
+      boton('Reordenar esta oración', 'accion', () => { state.estructuraOff.delete(sid); state.overrides = {}; ejecutar(); });
+    }
+    posicionar(pin);
+    const cont = pin.parentElement; cont.classList.add('foco');
+  }
+  function posicionar(el) {
     const rect = el.getBoundingClientRect();
     menu.classList.add('open');
     const mw = menu.offsetWidth;
@@ -330,6 +460,7 @@
   }
   function cerrarMenu(devolverFoco) {
     menu.classList.remove('open');
+    document.querySelectorAll('.estr.foco').forEach((x) => x.classList.remove('foco'));
     if (ancla) { ancla.setAttribute('aria-expanded', 'false'); if (devolverFoco) ancla.focus(); }
     ancla = null;
   }
@@ -339,8 +470,16 @@
     const nuevo = $('resultado').querySelector('[data-cid="' + ch.id + '"]');
     if (nuevo) nuevo.focus();
   }
-  $('resultado').addEventListener('click', (e) => { const el = e.target.closest('.mk'); if (el) { e.stopPropagation(); abrirMenu(el); } });
-  $('resultado').addEventListener('keydown', (e) => { const el = e.target.closest('.mk'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirMenu(el); } });
+  $('resultado').addEventListener('click', (e) => {
+    const pin = e.target.closest('.pin');
+    if (pin) { e.stopPropagation(); abrirMenuEstructura(pin); return; }
+    const el = e.target.closest('.mk');
+    if (el) { e.stopPropagation(); abrirMenuCambio(el); }
+  });
+  $('resultado').addEventListener('keydown', (e) => {
+    const el = e.target.closest('.mk');
+    if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirMenuCambio(el); }
+  });
   document.addEventListener('click', (e) => { if (!menu.contains(e.target)) cerrarMenu(); });
   document.addEventListener('keydown', (e) => {
     if (!menu.classList.contains('open')) return;
@@ -354,42 +493,122 @@
   });
   window.addEventListener('resize', () => cerrarMenu());
 
-  // --- botones ---
-  $('btnParafrasear').addEventListener('click', () => { state.overrides = {}; ejecutar(); });
-  $('btnVariante').addEventListener('click', () => { state.seed++; state.overrides = {}; ejecutar(); });
-  $('btnCopiar').addEventListener('click', () => copiar(state.ultimo ? state.ultimo.resultado : '', 'Resultado copiado'));
-  $('btnEjemplo').addEventListener('click', () => {
-    $('original').value = 'Sin embargo, el problema principal de la empresa es la falta de control del inventario. Además, el estudio permitió identificar que el método actual genera errores frecuentes, ya que no existe una herramienta adecuada para registrar las salidas. Por lo tanto, se propone implementar un sistema que permita analizar los datos y mejorar la toma de decisiones (Pérez, 2021).';
+  // --- acciones ---
+  $('btnParafrasear').addEventListener('click', () => { reiniciarElecciones(); ejecutar(); });
+  $('btnVariante').addEventListener('click', () => { state.seed++; reiniciarElecciones(); ejecutar(); });
+  $('btnCopiar').addEventListener('click', () => copiar(state.ultimo ? state.ultimo.resultado : '', null, 'Resultado copiado'));
+  $('btnDescargar').addEventListener('click', () => {
+    if (!state.ultimo) return;
+    const blob = new Blob([state.ultimo.resultado], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'parafraseo.txt';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('Archivo descargado');
+  });
+  $('resultado').addEventListener('click', (e) => {
+    if (e.target.id !== 'btnEjemplo') return;
+    $('original').value = 'El inventario presenta diferencias porque no se registran todas las salidas de mercadería. Para mejorar el control, la empresa implementó un sistema que permite registrar los movimientos en tiempo real. Se analizaron los datos de los últimos seis meses, lo que permitió identificar los productos con mayor rotación. Sin embargo, el problema principal es la falta de capacitación del personal (Pérez, 2021).';
     $('original').dispatchEvent(new Event('input'));
-    state.overrides = {};
+    if ($('dominio').value === 'general') $('dominio').value = 'gestion';
+    reiniciarElecciones();
     ejecutar();
   });
 
-  function copiar(texto, msg) {
+  function copiar(texto, html, msg) {
     if (!texto) return;
     const ok = () => toast(msg);
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(ok, () => fallback());
-    else fallback();
-    function fallback() {
+    const fallback = () => {
       const t = document.createElement('textarea'); t.value = texto; document.body.appendChild(t); t.select();
       try { document.execCommand('copy'); ok(); } catch (e) { toast('No se pudo copiar. Selecciona el texto y usa Ctrl+C.'); }
       t.remove();
-    }
+    };
+    try {
+      if (html && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        navigator.clipboard.write([new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([texto], { type: 'text/plain' }),
+        })]).then(ok, fallback);
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(texto).then(ok, fallback); return; }
+    } catch (e) {}
+    fallback();
   }
   let tt;
   function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2200); }
 
-  // --- cita APA ---
-  function cita() {
-    const autor = $('autor').value.trim(), anio = $('anio').value.trim() || 's.f.';
-    if (!autor) { $('cita').hidden = true; return; }
-    $('citaPar').textContent = '(' + autor + ', ' + anio + ')';
-    $('citaNar').textContent = autor + ' (' + anio + ')';
-    $('cita').hidden = false;
+  // --- referencia APA 7 ---
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const etiquetasFuente = { libro: 'Editorial', articulo: 'Nombre de la revista', tesis: 'Universidad', web: 'Nombre del sitio web' };
+  function actualizarCamposRef() {
+    const tipo = $('refTipo').value;
+    document.querySelectorAll('[data-para]').forEach((d) => { d.hidden = !d.dataset.para.split(' ').includes(tipo); });
+    $('lblFuente').textContent = etiquetasFuente[tipo];
   }
-  $('autor').addEventListener('input', cita);
-  $('anio').addEventListener('input', cita);
-  document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', () => copiar($(b.dataset.copy).textContent, 'Cita copiada')));
+  function punto(s) { return /[.?!]$/.test(s) ? s : s + '.'; }
+  function referencia() {
+    const tipo = $('refTipo').value;
+    const autores = $('refAutores').value.split(';').map((s) => s.trim()).filter(Boolean);
+    const anio = $('refAnio').value.trim() || 's.f.';
+    const titulo = $('refTitulo').value.trim();
+    const fuente = $('refFuente').value.trim();
+    const url = $('refUrl').value.trim();
+    if (!autores.length && !titulo) { $('refOut').hidden = true; return; }
+
+    const apellidos = autores.map((a) => a.split(',')[0].trim());
+    let enTexto;
+    if (!apellidos.length) enTexto = titulo ? '«' + titulo.split(' ').slice(0, 4).join(' ') + '»' : '';
+    else if (apellidos.length === 1) enTexto = apellidos[0];
+    else if (apellidos.length === 2) enTexto = apellidos[0] + ' y ' + apellidos[1];
+    else enTexto = apellidos[0] + ' et al.';
+    $('citaPar').textContent = '(' + enTexto + ', ' + anio + ')';
+    $('citaNar').textContent = enTexto + ' (' + anio + ')';
+
+    let listaAut = '';
+    if (autores.length === 1) listaAut = autores[0];
+    else if (autores.length > 1 && autores.length <= 20) listaAut = autores.slice(0, -1).join(', ') + ', & ' + autores[autores.length - 1];
+    else if (autores.length > 20) listaAut = autores.slice(0, 19).join(', ') + ', . . . ' + autores[autores.length - 1];
+
+    const t = [], h = [];
+    const add = (txt, html) => { t.push(txt); h.push(html === undefined ? esc(txt) : html); };
+    if (listaAut) add(punto(listaAut) + ' ');
+    add('(' + anio + '). ');
+    if (tipo === 'articulo') {
+      if (titulo) add(punto(titulo) + ' ');
+      if (fuente) {
+        const vol = $('refVol').value.trim(), num = $('refNum').value.trim(), pag = $('refPag').value.trim();
+        let txt = fuente, html = '<i>' + esc(fuente);
+        if (vol) { txt += ', ' + vol; html += ', ' + esc(vol); }
+        html += '</i>';
+        if (num) { txt += '(' + num + ')'; html += '(' + esc(num) + ')'; }
+        if (pag) { txt += ', ' + pag; html += ', ' + esc(pag); }
+        add(txt + '. ', html + '. ');
+      }
+    } else if (tipo === 'tesis') {
+      if (titulo) add(titulo + ' ', '<i>' + esc(titulo) + '</i> ');
+      add('[' + $('refGrado').value + (fuente ? ', ' + fuente : '') + ']. ');
+      const repo = $('refRepo').value.trim();
+      if (repo) add(punto(repo) + ' ');
+    } else {
+      if (titulo) add(punto(titulo) + ' ', '<i>' + esc(titulo) + '</i>' + (/[.?!]$/.test(titulo) ? ' ' : '. '));
+      if (fuente && !(tipo === 'web' && apellidos.length === 1 && fuente === autores[0])) add(punto(fuente) + ' ');
+    }
+    if (url) add(url, esc(url));
+    const plain = t.join('').trim(), html = h.join('').trim();
+    const ref = $('referencia');
+    ref.innerHTML = html;
+    ref.dataset.plain = plain;
+    $('refOut').hidden = false;
+  }
+  $('refTipo').addEventListener('change', () => { actualizarCamposRef(); referencia(); });
+  document.querySelectorAll('.grid-ref input, .grid-ref select').forEach((x) => x.addEventListener('input', referencia));
+  document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', () => {
+    const el = $(b.dataset.copy);
+    if (b.dataset.copy === 'referencia') copiar(el.dataset.plain, '<p style="padding-left:.5in;text-indent:-.5in">' + el.innerHTML + '</p>', 'Referencia copiada');
+    else copiar(el.textContent, null, 'Cita copiada');
+  }));
+  actualizarCamposRef();
 })();
 </script>
 </body>
