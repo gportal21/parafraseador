@@ -155,6 +155,12 @@
   #menu button[aria-current="true"] { font-weight: 600; }
   #menu button.orig { font-family: "Atkinson Hyperlegible", sans-serif; font-size: .9rem; color: var(--muted); border-top: 1px solid var(--line); border-radius: 0 0 6px 6px; margin-top: 4px; }
   #menu button.accion { font-family: "Atkinson Hyperlegible", sans-serif; font-size: .95rem; color: var(--accent); font-weight: 700; }
+  #menu .tesauro { max-height: 300px; overflow-y: auto; padding: 0 4px; font-size: .95rem; color: var(--muted); }
+  #menu .sentido { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 4px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  #menu .sentido .num { font-size: .78rem; color: var(--muted); margin-right: 2px; }
+  #menu .sentido button { display: inline-block; width: auto; padding: 3px 8px; font-size: .95rem; }
+  #menu .aviso { font-size: .8rem; margin: 6px 4px 2px; }
+  #resultado .par { cursor: pointer; }
   #menu .fuente { margin: 6px 8px 4px; padding-top: 6px; border-top: 1px solid var(--line); font-size: .8rem; color: var(--muted); }
   #menu .fuente a { color: var(--accent); }
   footer h3 { font-size: .95rem; color: var(--ink); margin: 18px 0 6px; }
@@ -204,7 +210,7 @@
     </section>
     <section class="pane">
       <h2>Resultado <span id="cuentaRes"></span></h2>
-      <div id="resultado" aria-live="polite"><span class="vacio">Pega un texto a la izquierda y pulsa Parafrasear, o prueba con <button type="button" class="linkbtn" id="btnEjemplo">un texto de ejemplo</button>. Haz clic en cualquier palabra subrayada o en un círculo morado para elegir otra opción o deshacer el cambio.</span></div>
+      <div id="resultado" aria-live="polite"><span class="vacio">Pega un texto a la izquierda y pulsa Parafrasear, o prueba con <button type="button" class="linkbtn" id="btnEjemplo">un texto de ejemplo</button>. Haz clic en una palabra subrayada o en un círculo morado para elegir otra opción o deshacer el cambio, o en cualquier otra palabra para ver sus sinónimos del diccionario.</span></div>
       <div class="meter" id="meter" hidden>
         <div class="meter-top">
           <span>Similitud con el original</span>
@@ -272,6 +278,7 @@
   </div>
 
   <footer>
+    <p>Para bajar la similitud, haz clic en cualquier palabra del resultado: verás sus sinónimos de OpenThesaurus agrupados por sentido y ya conjugados. Tú eliges el que encaja.</p>
     <p>El indicador compara secuencias de tres palabras, como hacen los detectores de plagio. Las partes resaltadas siguen iguales al original: conviene reescribirlas a mano.</p>
     <p>Las reglas no entienden el contexto como una persona. Lee siempre el resultado completo para confirmar que conserva el sentido.</p>
     <h3>Fuentes de las técnicas y del vocabulario</h3>
@@ -316,7 +323,7 @@
   setIntensidad(store.get('pp_intensidad') || 'medio', false);
 
   function reiniciarElecciones() { state.elec = []; }
-  function eleccion(i) { return state.elec[i] || (state.elec[i] = { ov: {}, off: new Set(), on: new Set() }); }
+  function eleccion(i) { return state.elec[i] || (state.elec[i] = { ov: {}, man: {}, off: new Set(), on: new Set() }); }
   function setIntensidad(v, rerun) {
     state.intensidad = v;
     document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.int === v)));
@@ -404,7 +411,7 @@
     const t = state.partes[i];
     const e = eleccion(i);
     const r = P.parafrasear(t, Object.assign({}, base, {
-      seed: state.seed * 7919 + i, overrides: e.ov, estructuraOff: [...e.off], estructuraOn: [...e.on],
+      seed: state.seed * 7919 + i, overrides: e.ov, manuales: e.man, estructuraOff: [...e.off], estructuraOn: [...e.on],
     }));
     state.par[i] = { r, sim: P.similitud(t, r.resultado) };
   }
@@ -575,6 +582,7 @@
     if (!state.listo) return;
     const pi = parrafoDe(el);
     const ch = state.par[pi].r.cambios[+el.dataset.cid];
+    if (ch.tipo === 'manual') { const r0 = el.getBoundingClientRect(); abrirTesauro(pi, ch.ini, ch.original, r0.left, r0.bottom, el); return; }
     menu.textContent = '';
     const p = document.createElement('p');
     p.textContent = { conector: 'Conector', sinonimo: 'Sinónimo', personal: 'De tu diccionario' }[ch.tipo] || 'Cambio';
@@ -586,6 +594,10 @@
       if (op.toLowerCase() === actual) b.setAttribute('aria-current', 'true');
     });
     boton('Dejar «' + ch.original + '»', 'orig', () => elegir(pi, ch, '__orig__'));
+    if (ch.tipo === 'sinonimo') {
+      const r0 = el.getBoundingClientRect();
+      boton('Más sinónimos del diccionario…', 'accion', () => abrirTesauro(pi, ch.ini, ch.original, r0.left, r0.bottom, el));
+    }
     if (ch.tecnica && ch.tecnica !== 'personal') menu.appendChild(notaFuente([ch.tecnica]));
     posicionar(el);
   }
@@ -601,14 +613,85 @@
     menu.appendChild(p);
     if (e.activa) {
       const q = document.createElement('blockquote'); q.textContent = e.original; menu.appendChild(q);
-      boton('Volver a la estructura original', 'accion', () => { el.on.delete(sid); el.off.add(sid); el.ov = {}; cerrarMenu(); reprocesar(pi); });
+      boton('Volver a la estructura original', 'accion', () => { el.on.delete(sid); el.off.add(sid); el.ov = {}; el.man = {}; cerrarMenu(); reprocesar(pi); });
     } else {
-      boton('Reordenar esta oración', 'accion', () => { el.off.delete(sid); el.on.add(sid); el.ov = {}; cerrarMenu(); reprocesar(pi); });
+      boton('Reordenar esta oración', 'accion', () => { el.off.delete(sid); el.on.add(sid); el.ov = {}; el.man = {}; cerrarMenu(); reprocesar(pi); });
     }
     if (e.tecnicas && e.tecnicas.length) menu.appendChild(notaFuente(e.tecnicas));
     posicionar(pin);
     pin.parentElement.classList.add('foco');
   }
+  // --- sinónimos elegidos a mano (tesauro completo, se carga la primera vez) ---
+  let tesauroListo = null;
+  function cargarTesauroCompleto() {
+    if (tesauroListo) return tesauroListo;
+    tesauroListo = new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'tesauro-completo.js';
+      sc.onload = () => { P.cargarTesauro(self.PP_TESAURO_TEXTO); delete self.PP_TESAURO_TEXTO; res(); };
+      sc.onerror = () => { tesauroListo = null; rej(new Error('tesauro')); };
+      document.head.appendChild(sc);
+    });
+    return tesauroListo;
+  }
+  function abrirTesauro(pi, ti, palabra, x, y, anclaEl) {
+    const e = eleccion(pi);
+    const manual = e.man[ti];
+    const original = (state.par[pi].r.palabras.find((p) => p.ti === ti) || {}).original || palabra;
+    menu.textContent = '';
+    const p = document.createElement('p');
+    p.textContent = 'Sinónimos de «' + original + '» en el diccionario';
+    menu.appendChild(p);
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'tesauro';
+    cuerpo.textContent = 'Cargando el diccionario…';
+    menu.appendChild(cuerpo);
+    if (manual) boton('Volver a «' + original + '»', 'orig', () => { delete e.man[ti]; cerrarMenu(); reprocesar(pi); });
+    menu.appendChild(notaFuente(['manual']));
+    posicionarEn(x, y, anclaEl);
+    cargarTesauroCompleto().then(() => {
+      const sentidos = P.sinonimosManual(original) || [];
+      cuerpo.textContent = '';
+      if (!sentidos.length) { cuerpo.textContent = 'El diccionario no tiene sinónimos para esta forma de la palabra.'; return; }
+      sentidos.slice(0, 8).forEach((sn, k) => {
+        const fila = document.createElement('div');
+        fila.className = 'sentido';
+        const n = document.createElement('span');
+        n.className = 'num'; n.textContent = (k + 1) + '.';
+        fila.appendChild(n);
+        sn.opciones.slice(0, 10).forEach((o) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.setAttribute('role', 'menuitem');
+          b.textContent = o.forma;
+          if (manual && manual.forma === o.forma) b.setAttribute('aria-current', 'true');
+          b.addEventListener('click', () => { e.man[ti] = { forma: o.forma, gen: o.gen }; cerrarMenu(); reprocesar(pi); });
+          fila.appendChild(b);
+        });
+        cuerpo.appendChild(fila);
+      });
+      const nota = document.createElement('p');
+      nota.className = 'aviso';
+      nota.textContent = 'Elige el que tenga el mismo sentido en tu oración y revisa la concordancia.';
+      cuerpo.appendChild(nota);
+      const first = cuerpo.querySelector('button'); if (first) first.focus();
+    }, () => { cuerpo.textContent = 'No se pudo cargar el diccionario. Revisa tu conexión y vuelve a intentarlo.'; });
+  }
+  function palabraEnPunto(ev, div, pi) {
+    let rng = null;
+    if (document.caretRangeFromPoint) rng = document.caretRangeFromPoint(ev.clientX, ev.clientY);
+    else if (document.caretPositionFromPoint) {
+      const cp = document.caretPositionFromPoint(ev.clientX, ev.clientY);
+      if (cp) { rng = document.createRange(); rng.setStart(cp.offsetNode, cp.offset); }
+    }
+    if (!rng || !div.contains(rng.startContainer)) return null;
+    const antes = document.createRange();
+    antes.setStart(div, 0);
+    antes.setEnd(rng.startContainer, rng.startOffset);
+    const off = antes.toString().length;
+    const pals = state.par[pi].r.palabras;
+    return pals.find((p) => off >= p.start && off < p.end) || pals.find((p) => off === p.end) || null;
+  }
+
   // "Técnica: … · Fuente: …" con enlaces a las guías
   function notaFuente(tecnicas) {
     const div = document.createElement('div');
@@ -626,6 +709,16 @@
       });
     });
     return div;
+  }
+  function posicionarEn(x, y, anclaEl) {
+    menu.classList.add('open');
+    const mw = menu.offsetWidth;
+    let left = x + window.scrollX;
+    left = Math.min(left, window.scrollX + document.documentElement.clientWidth - mw - 12);
+    menu.style.left = Math.max(8, left) + 'px';
+    menu.style.top = (y + window.scrollY + 6) + 'px';
+    if (ancla) ancla.setAttribute('aria-expanded', 'false');
+    ancla = anclaEl || null;
   }
   function posicionar(el) {
     const rect = el.getBoundingClientRect();
@@ -654,7 +747,16 @@
     const pin = e.target.closest('.pin');
     if (pin) { e.stopPropagation(); abrirMenuEstructura(pin); return; }
     const el = e.target.closest('.mk');
-    if (el) { e.stopPropagation(); abrirMenuCambio(el); }
+    if (el) { e.stopPropagation(); abrirMenuCambio(el); return; }
+    // clic en cualquier otra palabra: sinónimos del diccionario
+    const div = e.target.closest('.par');
+    if (!div || !state.listo || window.getSelection().toString()) return;
+    const pi = +div.dataset.p;
+    const pal = palabraEnPunto(e, div, pi);
+    if (!pal) return;
+    e.stopPropagation();
+    if (pal.prot) { toast('Esta palabra está protegida: es una cita, sigla, nombre o término técnico.'); return; }
+    abrirTesauro(pi, pal.ti, pal.original, e.clientX, e.clientY + 8, null);
   });
   $('resultado').addEventListener('keydown', (e) => {
     const el = e.target.closest('.mk');

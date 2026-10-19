@@ -178,6 +178,7 @@
     externado: { nombre: 'Universidad Externado de Colombia, «Conectores lógicos»', url: 'https://www.uexternado.edu.co/wp-content/uploads/2023/08/CONECTORES-LOGICOS.pdf' },
     rosario: { nombre: 'Universidad del Rosario, «Guía de conectores»', url: 'https://formacioncontinua.urosario.edu.co/sites/default/files/2025-09/conectores-guia.pdf' },
     openthesaurus: { nombre: 'OpenThesaurus-es (tesauro de LibreOffice, LGPL 2.1)', url: 'https://github.com/LibreOffice/dictionaries/tree/master/es' },
+    hunspell_es: { nombre: 'Diccionario ortográfico de LibreOffice (Hunspell es_ES, proyecto RLA-ES)', url: 'https://github.com/LibreOffice/dictionaries/tree/master/es' },
     rae_pasiva: { nombre: 'RAE, Glosario de términos gramaticales: «pasiva refleja» y «pasiva perifrástica»', url: 'https://www.rae.es/gtg/pasiva-refleja' },
   };
 
@@ -189,6 +190,8 @@
     reordenar: { nombre: 'Reordenar palabras o frases', fuentes: ['csusm', 'lau'] },
     sinonimos: { nombre: 'Sustituir por sinónimos', fuentes: ['purdue', 'uts', 'openthesaurus'] },
     conectores: { nombre: 'Sustituir un conector por otro del mismo grupo', fuentes: ['externado', 'rosario'] },
+    clase: { nombre: 'Cambiar la clase de palabra (verbo → sustantivo)', fuentes: ['lau', 'portsmouth', 'csusm', 'hunspell_es'] },
+    manual: { nombre: 'Sinónimo elegido por ti en el diccionario', fuentes: ['purdue', 'uts', 'openthesaurus'] },
   };
 
   // Conectores: solo se intercambian dentro del mismo grupo de la guía
@@ -210,6 +213,66 @@
     { g: ['simultáneamente', 'al mismo tiempo'], f: ['externado'] },
     { g: ['siempre que', 'siempre y cuando'], f: ['rosario'] },
   ];
+
+  // Cambio de clase de palabra (verbo → sustantivo): "detectó el drift" → "realizó la detección del drift".
+  // Cada par se comprobó con el corrector ortográfico de LibreOffice (Hunspell es_ES): verbo y sustantivo existen.
+  // El verbo de apoyo «realizar» es el único verbo que añade esta técnica; por eso solo se incluyen
+  // verbos de acción con los que «realizar + sustantivo» es habitual (realizar el análisis, la detección…).
+  const VERBO_APOYO = 'realizar';
+  const NOMINALIZACIONES = {
+    actualizar: ['actualización', 'f'],
+    agrupar: ['agrupación', 'f'],
+    ajustar: ['ajuste', 'm'],
+    analizar: ['análisis', 'm'],
+    aplicar: ['aplicación', 'f'],
+    automatizar: ['automatización', 'f'],
+    calcular: ['cálculo', 'm'],
+    calibrar: ['calibración', 'f'],
+    capacitar: ['capacitación', 'f'],
+    clasificar: ['clasificación', 'f'],
+    comparar: ['comparación', 'f'],
+    comprobar: ['comprobación', 'f'],
+    configurar: ['configuración', 'f'],
+    construir: ['construcción', 'f'],
+    controlar: ['control', 'm'],
+    cuantificar: ['cuantificación', 'f'],
+    demostrar: ['demostración', 'f'],
+    desarrollar: ['desarrollo', 'm'],
+    detectar: ['detección', 'f'],
+    diseñar: ['diseño', 'm'],
+    documentar: ['documentación', 'f'],
+    ejecutar: ['ejecución', 'f'],
+    entrenar: ['entrenamiento', 'm'],
+    estandarizar: ['estandarización', 'f'],
+    estimar: ['estimación', 'f'],
+    evaluar: ['evaluación', 'f'],
+    examinar: ['examen', 'm'],
+    explorar: ['exploración', 'f'],
+    gestionar: ['gestión', 'f'],
+    identificar: ['identificación', 'f'],
+    implementar: ['implementación', 'f'],
+    inspeccionar: ['inspección', 'f'],
+    instalar: ['instalación', 'f'],
+    integrar: ['integración', 'f'],
+    investigar: ['investigación', 'f'],
+    medir: ['medición', 'f'],
+    normalizar: ['normalización', 'f'],
+    observar: ['observación', 'f'],
+    optimizar: ['optimización', 'f'],
+    organizar: ['organización', 'f'],
+    planificar: ['planificación', 'f'],
+    priorizar: ['priorización', 'f'],
+    probar: ['prueba', 'f'],
+    procesar: ['procesamiento', 'm'],
+    recopilar: ['recopilación', 'f'],
+    registrar: ['registro', 'm'],
+    revisar: ['revisión', 'f'],
+    seleccionar: ['selección', 'f'],
+    simular: ['simulación', 'f'],
+    transformar: ['transformación', 'f'],
+    validar: ['validación', 'f'],
+    verificar: ['verificación', 'f'],
+  };
 
   const DOMINIOS = {
     general: { nombre: 'General', frases: [], sust: [], adj: [], verb: [], protegidos: [] },
@@ -323,6 +386,7 @@
 
   // Irregularidades puntuales en los tiempos que se usan.
   const IRREGULARES = {
+    distribuir: { ger: 'distribuyendo', pres3s: 'distribuye', pres3p: 'distribuyen', pret3s: 'distribuyó', pret3p: 'distribuyeron', subj3s: 'distribuya', subj3p: 'distribuyan' },
     seguir: { ger: 'siguiendo', pres3s: 'sigue', pres3p: 'siguen', pret3s: 'siguió', pret3p: 'siguieron', subj3s: 'siga', subj3p: 'sigan' },
     elegir: { ger: 'eligiendo', pres3s: 'elige', pres3p: 'eligen', pret3s: 'eligió', pret3p: 'eligieron', subj3s: 'elija', subj3p: 'elijan' },
     devolver: { part: 'devuelto', pres3s: 'devuelve', pres3p: 'devuelven', subj3s: 'devuelva', subj3p: 'devuelvan' },
@@ -354,7 +418,7 @@
     comprobar: { pres3s: 'comprueba', pres3p: 'comprueban', subj3s: 'compruebe', subj3p: 'comprueben' },
   };
 
-  const api = { GENERAL, DOMINIOS, VERBOS_PASIVA, IRREGULARES, FUENTES, TECNICAS, CONECTORES_GUIAS };
+  const api = { GENERAL, DOMINIOS, VERBOS_PASIVA, IRREGULARES, FUENTES, TECNICAS, CONECTORES_GUIAS, NOMINALIZACIONES, VERBO_APOYO };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PP_DICCIONARIO = api;
 })(typeof self !== 'undefined' ? self : this);

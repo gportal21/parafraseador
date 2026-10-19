@@ -168,6 +168,19 @@
     return { pret, part, formas };
   })();
 
+  // Formas verbales que admiten el cambio verbo -> sustantivo
+  const NOMINAL = (function () {
+    const m = new Map();
+    Object.keys(D.NOMINALIZACIONES).forEach((inf) => {
+      const f = conjugar(inf);
+      [['pres3s', 'pres', 's'], ['pres3p', 'pres', 'p'], ['pret3s', 'pret', 's'], ['pret3p', 'pret', 'p'], ['imp3s', 'imp', 's'], ['imp3p', 'imp', 'p'], ['fut3s', 'fut', 's'], ['fut3p', 'fut', 'p']]
+        .forEach(([slot, tiempo, n]) => { if (!m.has(f[slot])) m.set(f[slot], { inf, tiempo, n }); });
+    });
+    return m;
+  })();
+  const APOYO = conjugar(D.VERBO_APOYO);
+  const MARCA_APOYO = '\u2060'; // se elimina antes de mostrar el resultado
+
   // ---------------------------------------------------------------
   // Utilidades
   // ---------------------------------------------------------------
@@ -515,6 +528,28 @@
     if (m && nPalabras(m[2]) >= 4) {
       push(mayusInicial(m[2]) + ', sin ' + m[1], 'el complemento pasa al final', 'sin');
     }
+    // Clase de palabra: "Su sistema detectó el drift" -> "Su sistema realizó la detección del drift"
+    (function () {
+      const w = core.split(/\s+/);
+      for (let i = 0; i < w.length - 2; i++) {
+        const lw = w[i].toLowerCase();
+        const nv = NOMINAL.get(lw);
+        if (!nv) continue;
+        const det = w[i + 1].toLowerCase();
+        if (!DET_GN[det] && !/^(su|sus)$/.test(det)) continue;
+        if (i > 0 && /^(lo|la|los|las|le|les|me|te|nos)$/i.test(w[i - 1])) continue; // "la probó": el objeto ya no está detrás
+        const [noun, gen] = D.NOMINALIZACIONES[nv.inf];
+        const reflejo = i > 0 && w[i - 1].toLowerCase() === 'se';
+        const apoyo = APOYO[nv.tiempo + '3' + (reflejo ? 's' : nv.n)];
+        const art = gen === 'f' ? 'la' : 'el';
+        const de = det === 'el' ? 'del' : 'de ' + w[i + 1];
+        let frase = apoyo + MARCA_APOYO + ' ' + art + ' ' + noun + ' ' + de;
+        if (esMayus(w[i][0])) frase = mayusInicial(frase);
+        const nuevo = w.slice(0, i).concat([frase], w.slice(i + 2)).join(' ');
+        push(nuevo, 'el verbo «' + w[i] + '» pasa a sustantivo', 'clase');
+        return;
+      }
+    })();
     // Aposición: "A, un caso en el que B" -> "A. Es un caso en el que B"
     m = core.match(/^(.+?),\s+(un|una|unos|unas)\s+(\p{L}+(?:\s+\p{L}+)?)\s+(en el que|en la que|en el cual|en la cual|donde|que|cuyo|cuya)\s+(.+)$/u);
     if (m && nPalabras(m[1]) >= 4 && nPalabras(m[5]) >= 3) {
@@ -572,7 +607,7 @@
 
   const PASOS = { leve: 1, medio: 1, fuerte: 2 };
   // técnica (y guía) que respalda cada grupo de reglas: ver D.TECNICAS
-  const TECNICA_DE = { complemento: 'orden', causa: 'orden', finalidad: 'orden', concesion: 'orden', condicion: 'orden', cuando: 'orden', inciso: 'orden', sin: 'orden', voz: 'voz', division: 'dividir', atributo: 'reordenar', inicio: 'reordenar' };
+  const TECNICA_DE = { complemento: 'orden', causa: 'orden', finalidad: 'orden', concesion: 'orden', condicion: 'orden', cuando: 'orden', inciso: 'orden', sin: 'orden', voz: 'voz', division: 'dividir', atributo: 'reordenar', inicio: 'reordenar', clase: 'clase' };
 
   function reestructurar(texto, opts) {
     const prob = PROB[opts.intensidad || 'medio'].estr;
@@ -585,9 +620,25 @@
     const rangos = [];
     let oi = 0;
 
-    partes.forEach((pt) => {
-      if (pt.tipo === 'g') { texto2 += pt.text; return; }
+    for (let k = 0; k < partes.length; k++) {
+      const pt = partes[k];
+      if (pt.tipo === 'g') { texto2 += pt.text; continue; }
       const sid = oi++;
+      // unir con la oración siguiente: "… proactiva. Esta vigila …" -> "… proactiva, que vigila …"
+      const sig = partes[k + 1], sig2 = partes[k + 2];
+      if (opts.estructura !== false && sig && sig.tipo === 'g' && sig.text === ' ' && sig2 && sig2.tipo === 'o') {
+        const unida = unirOraciones(pt.text, sig2.text);
+        if (unida && (forzadas.has(sid) || (!apagadas.has(sid) && azar(opts.seed + 41, sid) < prob))) {
+          oi++; k += 2;
+          const r2 = transformarOracion(unida, sid, true);
+          const extra = r2 && r2.aplicada;
+          const ini2 = texto2.length;
+          texto2 += extra ? r2.texto : unida;
+          rangos.push({ sid, start: ini2, end: texto2.length, regla: 'Se unen dos oraciones' + (extra ? '; ' + r2.regla[0].toLowerCase() + r2.regla.slice(1) : ''),
+            tecnicas: ['dividir'].concat(extra ? r2.tecnicas : []), original: pt.text + sig.text + sig2.text, activa: true });
+          continue;
+        }
+      }
       const r = opts.estructura !== false ? transformarOracion(pt.text, sid) : null;
       const ini = texto2.length;
       if (r && r.aplicada) {
@@ -597,10 +648,22 @@
         texto2 += pt.text;
         if (r) rangos.push({ sid, start: ini, end: texto2.length, regla: r.regla, tecnicas: r.tecnicas, original: pt.text, activa: false });
       }
-    });
+    }
     return { texto2, rangos };
 
-    function transformarOracion(s, sid) {
+    function unirOraciones(a, b) {
+      const ma = a.match(/^([\s\S]+?[^.])\.$/);
+      if (!ma || /\)\s*$/.test(ma[1]) || /[;:]/.test(ma[1]) || nPalabras(ma[1]) > 30) return null;
+      const mb = b.match(/^(Este|Esta|Estos|Estas)\s+(\p{Ll}+)(\s[\s\S]*)$/u);
+      if (!mb) return null;
+      const v = mb[2];
+      const esVerbo = PASIVA.formas.has(v) || /^(es|son|fue|fueron|era|eran|tiene|tienen|consiste|consisten|permite|permiten|incluye|incluyen|sirve|sirven|puede|pueden|debe|deben)$/.test(v) ||
+        ((opts._indice && opts._indice.get(v)) || []).some((c) => c.pos === 'v');
+      if (!esVerbo || GENERO_DE[v]) return null;
+      return ma[1] + ', que ' + v + mb[3];
+    }
+
+    function transformarOracion(s, sid, sinDividir) {
       if (/^[¿¡]/.test(s)) return null;
       const m = s.match(/^([\s\S]*?)(\s*\([^()]*\d{4}[^()]*\))?([.!?…]*)$/u);
       if (!m || !m[1].trim()) return null;
@@ -618,7 +681,7 @@
       const tecnicas = new Set();
       const salida = piezas.map((pz, i) => {
         if (i % 2 === 1 || nPalabras(pz) < 5) return pz;
-        const r = transformarClausula(pz, sid * 10 + i);
+        const r = transformarClausula(pz, sid * 10 + i, sinDividir);
         if (!r) return pz;
         reglas.push(...r.reglas);
         r.tecnicas.forEach((t) => tecnicas.add(t));
@@ -635,7 +698,7 @@
       return { texto: texto3, regla: regla[0].toUpperCase() + regla.slice(1), aplicada, tecnicas: [...tecnicas] };
     }
 
-    function transformarClausula(core, clave) {
+    function transformarClausula(core, clave, sinDividir) {
       core = core.trim();
       const minuscula = !esMayus(core[0]);
       core = mayusInicial(core);
@@ -648,7 +711,7 @@
       const aplicadas = [];
       for (let paso = 0; paso < pasos; paso++) {
         const cands = reglasEstructura(cur, { low, h: azar(opts.seed + 29 + paso, clave) })
-          .filter((c) => !aplicadas.some((a) => a.grupo === c.grupo) && !(c.divide && aplicadas.some((a) => a.alFinal)));
+          .filter((c) => !aplicadas.some((a) => a.grupo === c.grupo) && !(c.divide && (sinDividir || aplicadas.some((a) => a.alFinal))));
         if (!cands.length) break;
         const c = cands[Math.floor(azar(opts.seed + 17 + paso, clave) * cands.length)];
         aplicadas.push(c);
@@ -707,6 +770,8 @@
       }
       if (conAnio && j < toks.length) for (let k = i; k <= j; k++) toks[k].prot = true;
     }
+    // el verbo de apoyo de la nominalización no recibe sinónimos
+    toks.forEach((t, i) => { if (t.t === MARCA_APOYO) { t.out = ''; if (i > 0) toks[i - 1].prot = true; } });
     const inicioOracion = (ti) => {
       let j = ti - 1;
       while (j >= 0) {
@@ -733,6 +798,29 @@
 
     const cambios = [];
     const usado = new Set();
+    const concordancias = [];
+
+    // --- Sinónimos elegidos a mano (del tesauro completo) ---
+    Object.entries(opts.manuales || {}).forEach(([k, m]) => {
+      const ti = +k;
+      const tok = toks[ti];
+      if (!tok || tok.kind !== 'w' || !m || !m.forma) return;
+      const id = cambios.length;
+      tok.out = capitalizarComo(tok.t, m.forma);
+      tok.cid = id; tok.cls = 'sinonimo';
+      usado.add(ti);
+      cambios.push({ id, tipo: 'manual', tecnica: 'manual', ini: ti, fin: ti, original: tok.t, opciones: [tok.t, tok.out], elegido: tok.out });
+      // concordancia si el sustantivo cambia de género (el género original se deduce del artículo)
+      if (m.gen) {
+        const k2 = posEnW.get(ti);
+        const prev = k2 > 0 ? toks[W[k2 - 1]].t.toLowerCase() : '';
+        const det = GENERO_DE[prev];
+        if (det && det.m !== det.f) {
+          const genOrig = prev === det.f ? 'f' : 'm';
+          if (genOrig !== m.gen) concordancias.push({ ti, gen: m.gen });
+        }
+      }
+    });
 
     // --- Expresiones: diccionario personal primero, luego área y generales ---
     const grupos = [];
@@ -760,7 +848,7 @@
         if (!contiguo) continue;
         const pal = [];
         for (let q = 0; q < L; q++) pal.push(toks[W[k + q]]);
-        if (pal.some((t) => t.prot)) continue;
+        if (pal.some((t) => t.prot || t.cls === 'sinonimo')) continue;
         const clave = pal.map((t) => t.t.toLowerCase()).join(' ');
         const hit = FR_IDX.get(clave);
         if (!hit) continue;
@@ -795,7 +883,6 @@
     const prevContiguo = (ti) => { const k = posEnW.get(ti); return k > 0 && W[k] - W[k - 1] === 2 && /^\s+$/.test(toks[W[k] - 1].t) ? W[k - 1] : null; };
     const sigContiguo = (ti) => { const k = posEnW.get(ti); return k < W.length - 1 && W[k + 1] - W[k] === 2 && /^\s+$/.test(toks[W[k] + 1].t) ? W[k + 1] : null; };
     const esAdjVariable = (w) => IX.ADJ_VAR.has(w) || (/(ad|id|iv|ic|os|ari)[oa]s?$/.test(w) && w.length > 5);
-    const concordancias = [];
 
     W.forEach((ti) => {
       const tok = toks[ti];
@@ -941,17 +1028,25 @@
       }
     });
     const resultado = segmentos.map((s) => s.text).join('');
+    // posición de cada palabra en el resultado (para elegir sinónimos a mano)
+    const palabras = [];
+    let pos = 0;
+    toks.forEach((t, i) => {
+      const len = t.out.length;
+      if (t.kind === 'w' && len) palabras.push({ ti: i, start: pos, end: pos + len, prot: t.prot, original: t.t, salida: t.out });
+      pos += len;
+    });
 
     const estructuras = rangos.map((r) => ({ sid: r.sid, regla: r.regla, tecnicas: r.tecnicas, original: r.original, activa: r.activa }));
     const stats = {
       palabras: W.length,
       conectores: cambios.filter((c) => c.tipo === 'conector' && c.elegido).length,
       personales: cambios.filter((c) => c.tipo === 'personal' && c.elegido).length,
-      sinonimos: cambios.filter((c) => c.tipo === 'sinonimo' && c.elegido).length,
+      sinonimos: cambios.filter((c) => (c.tipo === 'sinonimo' || c.tipo === 'manual') && c.elegido).length,
       concordancia: toks.filter((t) => t.cls === 'concordancia' && t.cid == null).length,
       estructuras: estructuras.filter((e) => e.activa).length,
     };
-    return { resultado, segmentos, cambios, estructuras, stats };
+    return { resultado, segmentos, cambios, estructuras, stats, palabras };
   }
 
   // ---------------------------------------------------------------
@@ -974,6 +1069,89 @@
     return { porcentaje: Math.round((comp / setA.size) * 100), marcadas };
   }
 
+  // ---------------------------------------------------------------
+  // Tesauro completo (OpenThesaurus-es) para elegir sinónimos a mano
+  // ---------------------------------------------------------------
+  let TC = null;
+  function cargarTesauro(texto) {
+    TC = new Map();
+    texto.split('\n').forEach((l) => {
+      const i = l.indexOf('\t');
+      if (i > 0) TC.set(l.slice(0, i), l.slice(i + 1).split(';').map((x) => x.split(',')));
+    });
+    return TC.size;
+  }
+  const generoGrupo = new Map();
+  [D.GENERAL, ...Object.values(D.DOMINIOS)].forEach((d) => d.sust.forEach((x) => x.g.forEach(([l, g]) => generoGrupo.set(l, g))));
+  function generoProbable(n) {
+    if (generoGrupo.has(n)) return generoGrupo.get(n);
+    if (/(ma|pa)$/.test(n)) return 'm';
+    return /(a|ión|dad|tad|tud|umbre|ez)$/.test(n) ? 'f' : 'm';
+  }
+  const TERM_VERBO = [
+    ['aron', 'ar', 'pret3p'], ['ieron', 'er', 'pret3p'], ['ieron', 'ir', 'pret3p'], ['ó', 'ar', 'pret3s'], ['ió', 'er', 'pret3s'], ['ió', 'ir', 'pret3s'],
+    ['aban', 'ar', 'imp3p'], ['aba', 'ar', 'imp3s'], ['ían', 'er', 'imp3p'], ['ían', 'ir', 'imp3p'], ['ía', 'er', 'imp3s'], ['ía', 'ir', 'imp3s'],
+    ['an', 'ar', 'pres3p'], ['en', 'er', 'pres3p'], ['en', 'ir', 'pres3p'], ['a', 'ar', 'pres3s'], ['e', 'er', 'pres3s'], ['e', 'ir', 'pres3s'],
+    ['ando', 'ar', 'ger'], ['iendo', 'er', 'ger'], ['iendo', 'ir', 'ger'],
+    ['ados', 'ar', 'part_mp'], ['adas', 'ar', 'part_fp'], ['ado', 'ar', 'part_ms'], ['ada', 'ar', 'part_fs'],
+    ['idos', 'er', 'part_mp'], ['idas', 'er', 'part_fp'], ['ido', 'er', 'part_ms'], ['ida', 'er', 'part_fs'],
+    ['idos', 'ir', 'part_mp'], ['idas', 'ir', 'part_fp'], ['ido', 'ir', 'part_ms'], ['ida', 'ir', 'part_fs'],
+    ['arse', 'ar', 'inf_se'], ['erse', 'er', 'inf_se'], ['irse', 'ir', 'inf_se'],
+  ];
+  // Devuelve [{sentido: [{forma, gen}]}] con los sinónimos ya flexionados como la palabra original.
+  function sinonimosManual(palabra) {
+    if (!TC) return null;
+    const w = palabra.toLowerCase();
+    const analisis = [];
+    const agregar = (lema, tipo, slot) => { if (TC.has(lema) && !analisis.some((a) => a.lema === lema && a.slot === slot)) analisis.push({ lema, tipo, slot }); };
+    agregar(w, 'base', 'base');
+    if (/ces$/.test(w)) agregar(w.slice(0, -3) + 'z', 'plural', 'plural');
+    if (/es$/.test(w)) agregar(w.slice(0, -2), 'plural', 'plural');
+    if (/s$/.test(w)) agregar(w.slice(0, -1), 'plural', 'plural');
+    if (/a$/.test(w)) agregar(w.slice(0, -1) + 'o', 'adj', 'fs');
+    if (/as$/.test(w)) agregar(w.slice(0, -2) + 'o', 'adj', 'fp');
+    if (/os$/.test(w)) agregar(w.slice(0, -1), 'adj', 'mp');
+    TERM_VERBO.forEach(([fin, conj, slot]) => {
+      if (!w.endsWith(fin)) return;
+      const inf = w.slice(0, -fin.length) + conj;
+      if (TC.has(inf) && conjugar(inf)[slot] === w) agregar(inf, 'verbo', slot);
+    });
+    // formas de futuro y condicional (infinitivo + terminación)
+    [['án', 'fut3p'], ['á', 'fut3s'], ['ían', 'cond3p'], ['ía', 'cond3s']].forEach(([fin, slot]) => {
+      if (w.endsWith(fin) && /(ar|er|ir)$/.test(w.slice(0, -fin.length))) agregar(w.slice(0, -fin.length), 'verbo', slot);
+    });
+
+    const flexionar = (syn, a) => {
+      const partes = syn.split(' ');
+      const p0 = partes[0];
+      if (a.tipo === 'base') return { forma: syn, gen: generoProbable(p0) };
+      if (a.tipo === 'plural') return partes.length === 1 && !/(ar|er|ir)$/.test(p0) ? { forma: plural(p0), gen: generoProbable(p0) } : null;
+      if (a.tipo === 'adj') return partes.length === 1 && !/(ar|er|ir)$/.test(p0) ? { forma: formasAdj(p0)[a.slot] } : null;
+      // verbos: solo sinónimos que también son verbos
+      const m = p0.match(/^(\p{L}+?(ar|er|ir))(se)?$/u);
+      if (!m) return null;
+      const pronominal = !!m[3];
+      if (a.slot === 'inf_se') return { forma: [m[1] + 'se'].concat(partes.slice(1)).join(' ') };
+      if (pronominal) return null; // faltaría el «se» delante
+      const f = conjugar(m[1])[a.slot];
+      return f ? { forma: [f].concat(partes.slice(1)).join(' ') } : null;
+    };
+    const sentidos = [];
+    const vistos = new Set();
+    analisis.forEach((a) => TC.get(a.lema).forEach((lista) => {
+      const clave = a.lema + '|' + lista.join(',');
+      if (vistos.has(clave)) return;
+      vistos.add(clave);
+      const opciones = [];
+      lista.forEach((syn) => {
+        const r = flexionar(syn, a);
+        if (r && r.forma !== w && !opciones.some((o) => o.forma === r.forma)) opciones.push(Object.assign(r, { lema: syn }));
+      });
+      if (opciones.length) sentidos.push({ lema: a.lema, opciones });
+    }));
+    return sentidos;
+  }
+
   // Lee "palabra = alt1, alt2" (una línea por grupo)
   function leerPersonales(texto) {
     const grupos = [];
@@ -986,7 +1164,7 @@
 
   const DOMINIOS = Object.entries(D.DOMINIOS).map(([id, d]) => ({ id, nombre: d.nombre }));
 
-  const api = { parafrasear, similitud, palabrasNorm, leerPersonales, DOMINIOS, FUENTES: D.FUENTES, TECNICAS: D.TECNICAS, _plural: plural, _conjugar: conjugar, _dividir: dividirOraciones };
+  const api = { parafrasear, similitud, palabrasNorm, leerPersonales, cargarTesauro, sinonimosManual, DOMINIOS, FUENTES: D.FUENTES, TECNICAS: D.TECNICAS, _plural: plural, _conjugar: conjugar, _dividir: dividirOraciones };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Parafraseador = api;
 })(typeof self !== 'undefined' ? self : this);

@@ -11,16 +11,18 @@ Cada técnica y cada palabra que el motor puede introducir proviene de una fuent
 | Mover frases y cláusulas dentro de la oración | [Purdue OWL](https://owl.purdue.edu/owl/multilingual/multilingual_students/paraphrasing_and_summary/index.html); [LAU Writing Center](https://soas.lau.edu.lb/images/WrC%20Paraphrasing%20Handout.pdf) |
 | Cambiar entre voz activa y pasiva | [LAU Writing Center](https://soas.lau.edu.lb/images/WrC%20Paraphrasing%20Handout.pdf); [U. of Portsmouth](https://myport.port.ac.uk/sites/default/files/2023-01/Paraphrasing%20-%20an%20introduction.pdf); [RAE, pasiva refleja](https://www.rae.es/gtg/pasiva-refleja) y [pasiva perifrástica](https://www.rae.es/gtg/pasiva-perifrástica) |
 | Dividir o combinar oraciones | [Purdue OWL](https://owl.purdue.edu/owl/multilingual/multilingual_students/paraphrasing_and_summary/index.html) |
+| Cambiar la clase de palabra (verbo → sustantivo: «detectó el drift» → «realizó la detección del drift») | [LAU Writing Center](https://soas.lau.edu.lb/images/WrC%20Paraphrasing%20Handout.pdf); [U. of Portsmouth](https://myport.port.ac.uk/sites/default/files/2023-01/Paraphrasing%20-%20an%20introduction.pdf); [CSUSM](https://csusm.edu/lts/studentresources/handouts/wc-handouts/2022_fall_handouts/paraphrasing-handout-08.01.22.pdf). Cada par verbo/sustantivo se comprobó con el corrector ortográfico de LibreOffice ([Hunspell es_ES](https://github.com/LibreOffice/dictionaries/tree/master/es)) |
 | Reordenar palabras o frases | [CSUSM Writing Center](https://csusm.edu/lts/studentresources/handouts/wc-handouts/2022_fall_handouts/paraphrasing-handout-08.01.22.pdf); [LAU Writing Center](https://soas.lau.edu.lb/images/WrC%20Paraphrasing%20Handout.pdf) |
-| Sinónimos | Técnica: [Purdue OWL](https://owl.purdue.edu/owl/multilingual/multilingual_students/paraphrasing_and_summary/index.html), [UTS HELPS](https://uts.edu.au/sites/default/files/Paraphrasing%20Factsheet.pdf). Vocabulario: solo pares que figuran en [OpenThesaurus-es](https://github.com/LibreOffice/dictionaries/tree/master/es) (`tesauro.js`) |
+| Sinónimos elegidos a mano (clic en cualquier palabra) | Todos los sinónimos de [OpenThesaurus-es](https://github.com/LibreOffice/dictionaries/tree/master/es) (`tesauro-completo.js`, se carga solo al usarlo), agrupados por sentido y flexionados como la palabra original |
+| Sinónimos automáticos | Técnica: [Purdue OWL](https://owl.purdue.edu/owl/multilingual/multilingual_students/paraphrasing_and_summary/index.html), [UTS HELPS](https://uts.edu.au/sites/default/files/Paraphrasing%20Factsheet.pdf). Vocabulario: solo pares que figuran en [OpenThesaurus-es](https://github.com/LibreOffice/dictionaries/tree/master/es) (`tesauro.js`) |
 | Conectores | Solo se cambian por otros del mismo grupo de las guías de la [U. Externado](https://www.uexternado.edu.co/wp-content/uploads/2023/08/CONECTORES-LOGICOS.pdf) y la [U. del Rosario](https://formacioncontinua.urosario.edu.co/sites/default/files/2025-09/conectores-guia.pdf) |
 | Citar la fuente aunque se parafrasee | [APA 7 (Atlantic TU Library)](https://atlantictu.libguides.com/APA7/citation/paraphrasing) |
 
-El motor no inserta frases propias: solo agrega las palabras gramaticales que exige cada técnica (artículos, «se», «fue/fueron», «por», «esto/este»). Los grupos de `diccionario.js` solo limitan qué sentidos de cada palabra son intercambiables; un par se usa únicamente si también figura en el tesauro.
+El motor no inserta frases propias: solo agrega las palabras gramaticales que exige cada técnica (artículos, «se», «fue/fueron», «por», «esto/este», «que» al unir oraciones) y el verbo de apoyo «realizar» en el cambio de verbo a sustantivo. Los grupos de `diccionario.js` solo limitan qué sentidos de cada palabra son intercambiables; un par se usa únicamente si también figura en el tesauro.
 
 ### Licencia del tesauro
 
-`tesauro.js` contiene datos derivados de OpenThesaurus-es (Marcelo Garrone), distribuido con LibreOffice bajo la GNU LGPL 2.1. El texto de la licencia está en `LICENCIA-TESAURO.txt` y la nota original en `herramientas/README_th_es.txt`. Para regenerarlo: `node herramientas/generar_tesauro.js th_es_v2.dat`.
+`tesauro.js` y `tesauro-completo.js` contienen datos derivados de OpenThesaurus-es (Marcelo Garrone), distribuido con LibreOffice bajo la GNU LGPL 2.1. El texto de la licencia está en `LICENCIA-TESAURO.txt` y la nota original en `herramientas/README_th_es.txt`. Para regenerarlos: `node herramientas/generar_tesauro.js th_es_v2.dat` y `node herramientas/generar_tesauro_completo.js th_es_v2.dat`.
 
 Página publicada: https://gportal21.github.io/parafraseador/
 
@@ -31,7 +33,8 @@ Página publicada: https://gportal21.github.io/parafraseador/
 - Pasiva refleja ↔ pasiva con «ser»: "Se analizaron los datos" ↔ "Los datos fueron analizados".
 - Complementos de tiempo, lugar o fuente al inicio o al final ("… desde el año 2022" → "Desde el año 2022, …"; "Según X, …" → "…, según X").
 - Causa, finalidad, concesión, condición y subordinadas con «cuando» al inicio o al final.
-- Verbo de reporte: "Los resultados demuestran que X" → "Según los resultados, X".
+- Verbo → sustantivo con verbos de acción: "Su sistema detectó el drift" → "Su sistema realizó la detección del drift".
+- Unir oraciones: "… una arquitectura proactiva. Esta vigila …" → "… una arquitectura proactiva, que vigila …".
 - Incisos ("Autor (año), en \"Título\", …"), participios iniciales, consecuencias («…, así que…»), «sin + infinitivo» y atributos.
 - División de oraciones largas en ", lo que", ", que", ", y", aposiciones y relativos sin coma.
 - Las oraciones con dos puntos o punto y coma se reestructuran tramo por tramo.
@@ -40,6 +43,7 @@ Página publicada: https://gportal21.github.io/parafraseador/
 - Cada oración reordenada se marca con un círculo morado: se puede deshacer una por una o forzar las que quedaron sin cambio.
 
 **Vocabulario**
+- Clic en cualquier palabra del resultado: muestra sus sinónimos del diccionario por sentido, ya conjugados o concordados, y tú eliges.
 - Conectores y expresiones ("sin embargo" → "no obstante").
 - Sinónimos de sustantivos, adjetivos y verbos, conservando número, tiempo verbal y mayúsculas.
 - Concordancia de género: artículos, determinantes, adjetivos y participios ("la limpieza del área fue realizada" → "el aseo del área fue realizado").
