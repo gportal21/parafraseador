@@ -7,12 +7,15 @@ Página publicada: https://gportal21.github.io/parafraseador/
 ## Qué hace
 
 **Estructura de las oraciones**
-- Mueve la causa al inicio o al final ("X porque Y" → "Dado que Y, x").
-- Mueve la finalidad ("Para mejorar el control, la empresa…" → "La empresa… para mejorar el control").
-- Mueve la concesión y la condición ("Aunque…", "Si…").
-- Alterna la voz pasiva: "Se analizaron los datos" ↔ "Los datos fueron analizados".
-- Divide oraciones largas en ", lo que…" → ". Esto…".
-- Cada oración reordenada se marca con un círculo morado y se puede deshacer una por una.
+- Voz activa ↔ pasiva: "La empresa aplicó la metodología" → "La metodología fue aplicada por la empresa", y al revés.
+- Pasiva refleja ↔ pasiva con «ser»: "Se analizaron los datos" ↔ "Los datos fueron analizados".
+- Complementos de tiempo, lugar o fuente al inicio o al final ("… desde el año 2022" → "Desde el año 2022, …"; "Según X, …" → "…, según X").
+- Causa, finalidad, concesión, condición y subordinadas con «cuando» al inicio o al final.
+- Verbo de reporte: "Los resultados demuestran que X" → "Según los resultados, X".
+- División de oraciones largas en ", lo que", ", que", ", y" y relativos sin coma.
+- Si la oración empieza con un conector ("Por ello, …"), las reglas se aplican al resto.
+- En intensidad fuerte se combinan hasta dos reglas por oración.
+- Cada oración reordenada se marca con un círculo morado: se puede deshacer una por una o forzar las que quedaron sin cambio.
 
 **Vocabulario**
 - Conectores y expresiones ("sin embargo" → "no obstante").

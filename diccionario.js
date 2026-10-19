@@ -275,11 +275,18 @@
     'inspeccionar', 'revisar', 'tabular', 'graficar', 'ordenar', 'limpiar', 'señalizar', 'etiquetar',
     'almacenar', 'entregar', 'presentar', 'aprobar', 'probar', 'mostrar', 'demostrar', 'encontrar',
     'comprobar', 'consolidar', 'escribir', 'resolver', 'abrir', 'cubrir', 'medir', 'tomar', 'llevar',
-    'formular', 'proponer', 'obtener', 'hacer', 'poner',
+    'formular', 'proponer', 'obtener', 'hacer', 'poner', 'activar', 'reducir', 'recibir', 'monitorear',
+    'calcular', 'construir', 'atender', 'mantener', 'incluir', 'definir', 'cuantificar', 'priorizar', 'ubicar',
   ];
 
   // Irregularidades puntuales en los tiempos que se usan.
   const IRREGULARES = {
+    reducir: { pret3s: 'redujo', pret3p: 'redujeron', pres3s: 'reduce', pres3p: 'reducen', subj3s: 'reduzca', subj3p: 'reduzcan' },
+    construir: { ger: 'construyendo', pres3s: 'construye', pres3p: 'construyen', pret3s: 'construyó', pret3p: 'construyeron', subj3s: 'construya', subj3p: 'construyan' },
+    incluir: { ger: 'incluyendo', pres3s: 'incluye', pres3p: 'incluyen', pret3s: 'incluyó', pret3p: 'incluyeron', subj3s: 'incluya', subj3p: 'incluyan' },
+    atender: { pres3s: 'atiende', pres3p: 'atienden', subj3s: 'atienda', subj3p: 'atiendan' },
+    mantener: { pres3s: 'mantiene', pres3p: 'mantienen', pret3s: 'mantuvo', pret3p: 'mantuvieron', fut3s: 'mantendrá', fut3p: 'mantendrán', cond3s: 'mantendría', cond3p: 'mantendrían', subj3s: 'mantenga', subj3p: 'mantengan' },
+    ubicar: {},
     evaluar: { pres3s: 'evalúa', pres3p: 'evalúan', subj3s: 'evalúe', subj3p: 'evalúen' },
     efectuar: { pres3s: 'efectúa', pres3p: 'efectúan', subj3s: 'efectúe', subj3p: 'efectúen' },
     describir: { part: 'descrito' },

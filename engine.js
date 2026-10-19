@@ -147,7 +147,7 @@
     const verbos = new Set(D.VERBOS_PASIVA);
     D.GENERAL.verb.forEach((g) => g.forEach((v) => verbos.add(v)));
     Object.values(D.DOMINIOS).forEach((d) => d.verb.forEach((g) => g.forEach((v) => verbos.add(v))));
-    const pret = new Map(), part = new Map();
+    const pret = new Map(), part = new Map(), formas = new Map();
     verbos.forEach((inf) => {
       const f = conjugar(inf);
       pret.set(f.pret3s, { inf, n: 's', f });
@@ -156,8 +156,10 @@
       part.set(f.part_fs, { inf, g: 'f', n: 's', f });
       part.set(f.part_mp, { inf, g: 'm', n: 'p', f });
       part.set(f.part_fp, { inf, g: 'f', n: 'p', f });
+      [['pret3s', 'pret', 's'], ['pret3p', 'pret', 'p'], ['pres3s', 'pres', 's'], ['pres3p', 'pres', 'p'], ['fut3s', 'fut', 's'], ['fut3p', 'fut', 'p']]
+        .forEach(([slot, tiempo, n]) => { if (!formas.has(f[slot])) formas.set(f[slot], { inf, n, tiempo, f }); });
     });
-    return { pret, part };
+    return { pret, part, formas };
   })();
 
   // ---------------------------------------------------------------
@@ -190,8 +192,8 @@
   }
 
   const PROB = {
-    leve: { sin: 0.35, estr: 0.3 },
-    medio: { sin: 0.75, estr: 0.75 },
+    leve: { sin: 0.4, estr: 0.5 },
+    medio: { sin: 0.75, estr: 1 },
     fuerte: { sin: 1, estr: 1 },
   };
 
@@ -253,8 +255,30 @@
   const CONJ_CAUSA = ['dado que', 'debido a que', 'puesto que', 'ya que'];
   const CONJ_CONCESION = ['aunque', 'si bien', 'pese a que', 'a pesar de que'];
   const INF = /^[\p{L}]+(?:ar|er|ir)(?:se|lo|la|los|las|le|les)?$/u;
-  const STOP_SN = new Set(['mediante', 'con', 'para', 'en', 'durante', 'a', 'por', 'según', 'desde', 'hasta', 'que', 'y', 'o', 'sobre', 'entre', 'debido', 'mientras', 'cuando', 'donde', 'utilizando', 'usando', 'aplicando', 'se', 'fue', 'fueron', 'es', 'son', 'como', 'sin', 'tras', 'hacia', 'ante']);
-  const DET_GN = { el: ['m', 's'], la: ['f', 's'], los: ['m', 'p'], las: ['f', 'p'], un: ['m', 's'], una: ['f', 's'], unos: ['m', 'p'], unas: ['f', 'p'] };
+  const STOP_SN = new Set(['mediante', 'con', 'para', 'en', 'durante', 'a', 'por', 'según', 'desde', 'hasta', 'que', 'y', 'o', 'sobre', 'entre', 'debido', 'mientras', 'cuando', 'donde', 'utilizando', 'usando', 'aplicando', 'se', 'fue', 'fueron', 'es', 'son', 'como', 'sin', 'tras', 'hacia', 'ante', 'no', 'cual', 'quien']);
+  const DET_GN = {
+    el: ['m', 's'], la: ['f', 's'], los: ['m', 'p'], las: ['f', 'p'], un: ['m', 's'], una: ['f', 's'], unos: ['m', 'p'], unas: ['f', 'p'],
+    este: ['m', 's'], esta: ['f', 's'], estos: ['m', 'p'], estas: ['f', 'p'], dicho: ['m', 's'], dicha: ['f', 's'], dichos: ['m', 'p'], dichas: ['f', 'p'],
+  };
+  const PRONOMBRE = { ms: 'Este', fs: 'Esta', mp: 'Estos', fp: 'Estas' };
+  // conectores que abren la oración: se separan y las reglas se aplican al resto
+  const CONECTORES_INI = new Set([
+    'sin embargo', 'no obstante', 'aun así', 'con todo', 'por lo tanto', 'por tanto', 'por consiguiente', 'en consecuencia', 'por ende',
+    'además', 'asimismo', 'adicionalmente', 'a su vez', 'del mismo modo', 'de igual manera', 'de igual forma', 'de la misma manera', 'igualmente',
+    'por ejemplo', 'a modo de ejemplo', 'es decir', 'esto es', 'o sea', 'en otras palabras', 'en primer lugar', 'en segundo lugar', 'en tercer lugar',
+    'primeramente', 'para empezar', 'finalmente', 'por último', 'para finalizar', 'en conclusión', 'en síntesis', 'en resumen', 'para concluir',
+    'en cambio', 'por el contrario', 'en este sentido', 'en esta línea', 'desde esta perspectiva', 'por otro lado', 'por otra parte', 'de otro lado',
+    'de esta manera', 'de este modo', 'de esta forma', 'así', 'así pues', 'por ello', 'por esta razón', 'por este motivo', 'por eso', 'en este contexto',
+    'en ese sentido', 'en tal sentido', 'al respecto', 'de hecho', 'en efecto', 'luego', 'seguidamente', 'a continuación', 'en general',
+    'por lo general', 'en definitiva', 'ante ello', 'ante esto', 'frente a ello', 'en particular', 'concretamente', 'sobre todo', 'principalmente',
+  ]);
+  // verbos cuya pasiva con «por» suena forzada
+  const NO_PASIVA_ACTIVA = new Set(['tener', 'presentar', 'contar', 'mostrar', 'indicar', 'señalar', 'evidenciar', 'revelar', 'reflejar', 'demostrar',
+    'afirmar', 'mencionar', 'buscar', 'permitir', 'posibilitar', 'requerir', 'necesitar', 'citar', 'implicar', 'involucrar', 'considerar', 'estimar', 'mantener']);
+  const PREP_CORTE = new Set(['en', 'durante', 'mediante', 'para', 'desde', 'según', 'con', 'tras']);
+  const MARC_FIN = /\s(durante|desde|mediante|a través del?|por medio del?|a lo largo del?|a partir del?|en el año|en los años|en el periodo|en el período|en los últimos|en las últimas|en el mes|en el área|en la empresa|en el sector|en el distrito|en la ciudad|en el taller|en el almacén|en la región|en el país|en la actualidad|actualmente|hoy en día|en esta investigación|en el presente estudio|según|de acuerdo con|conforme a|gracias al?|debido al?|a causa del?|como resultado del?|como consecuencia del?|con el apoyo del?)(?=\s|$)/giu;
+  const MARC_INI = /^((?:En|Durante|Desde|Tras|Luego de|Después de|Mediante|A través de|Por medio de|A lo largo de|A partir de|Según|De acuerdo con|Conforme a|Con base en|Gracias a|Debido a|A causa de|Como resultado de|Como consecuencia de|Actualmente|Hoy en día|Inicialmente|Posteriormente|Recientemente|Anteriormente|Históricamente)(?=[\s,])[^,]*),\s+(.+)$/u;
+  const COMA_FIN = /^(según|de acuerdo con|conforme a)/i;
 
   function elegirDistinto(lista, actual, h) {
     const op = lista.filter((x) => x !== (actual || '').toLowerCase());
@@ -275,136 +299,299 @@
     };
   }
 
-  // Cada regla recibe el núcleo de la oración (sin punto final ni cita final)
-  // y devuelve {texto, regla} o null.
+  const RELATIVO_INI = /^,\s+(que|el cual|la cual|los cuales|las cuales|lo que|lo cual|quien|quienes|donde)(\s|$)/i;
+  const tieneSubordinada = (s) => /(^|\s)(que|cuando|donde|mientras|porque|cual|cuales|quien|quienes)(\s|$)/i.test(s);
+  // "y" seguido de algo que no parece sustantivo (probable verbo coordinado)
+  function coordinaVerbo(palabras) {
+    for (let k = 0; k < palabras.length - 1; k++) {
+      if (/^(y|e|o|u)$/i.test(palabras[k])) {
+        const nx = palabras[k + 1].toLowerCase();
+        if (!DET_GN[nx] && !GENERO_DE[nx] && !/s$/.test(nx) && !/^⟦/.test(nx)) return true;
+      }
+    }
+    return false;
+  }
+  function separarCola(obj) {
+    // separa un complemento final ("en el almacén") que no depende de un participio ("basado en")
+    for (let k = 2; k < obj.length; k++) {
+      if (PREP_CORTE.has(obj[k].toLowerCase()) && !/(ad|id)[oa]s?$/i.test(obj[k - 1])) return [obj.slice(0, k), obj.slice(k)];
+    }
+    return [obj, []];
+  }
+
+  // Cada regla recibe la oración sin punto final, con citas y comillas reemplazadas
+  // por marcadores, y devuelve candidatos {texto, regla, grupo, divide}.
   function reglasEstructura(core, ctx) {
     const { low, h } = ctx;
     const out = [];
+    const push = (texto, regla, grupo, divide) => out.push({ texto, regla, grupo, divide: !!divide });
     let m;
 
-    // 1. Causa al final -> causa al inicio
+    // Causa al final -> al inicio
     m = core.match(/^([^,]+?)(?:,\s*|\s+)(porque|ya que|puesto que|dado que|debido a que)\s+([^,]+)$/u);
     if (m && nPalabras(m[1]) >= 3 && nPalabras(m[3]) >= 3) {
-      const c = elegirDistinto(CONJ_CAUSA, m[2], h);
-      out.push({ texto: mayusInicial(c) + ' ' + m[3] + ', ' + low(m[1]), regla: 'La causa pasa al inicio' });
+      push(mayusInicial(elegirDistinto(CONJ_CAUSA, m[2], h)) + ' ' + m[3] + ', ' + low(m[1]), 'la causa pasa al inicio', 'causa');
     }
-    // 2. Causa al inicio -> causa al final
+    // Causa al inicio -> al final
     m = core.match(/^(Porque|Ya que|Puesto que|Dado que|Debido a que)\s+([^,]+),\s+(.+)$/u);
     if (m && nPalabras(m[2]) >= 3 && nPalabras(m[3]) >= 3) {
-      const c = elegirDistinto(['ya que', 'puesto que', 'dado que'], m[1], h);
-      out.push({ texto: mayusInicial(m[3]) + ', ' + c + ' ' + m[2], regla: 'La causa pasa al final' });
+      push(mayusInicial(m[3]) + ', ' + elegirDistinto(['ya que', 'puesto que', 'dado que'], m[1], h) + ' ' + m[2], 'la causa pasa al final', 'causa');
     }
-    // 3. Finalidad al inicio -> al final
+    // Finalidad al inicio -> al final
     m = core.match(/^(Para|Con el fin de|Con el propósito de|Con el objetivo de|A fin de)\s+([^,]+),\s+(.+)$/u);
-    if (m && INF.test(m[2].split(/\s+/)[0]) && nPalabras(m[3]) >= 3) {
-      out.push({ texto: mayusInicial(m[3]) + ' ' + m[1].toLowerCase() + ' ' + m[2], regla: 'La finalidad pasa al final' });
+    if (m && INF.test(m[2].split(/\s+/)[0]) && nPalabras(m[3]) >= 3 && !m[3].includes(',') && !tieneSubordinada(m[3])) {
+      push(mayusInicial(m[3]) + ' ' + m[1].toLowerCase() + ' ' + m[2], 'la finalidad pasa al final', 'finalidad');
     }
-    // 4. Finalidad al final -> al inicio
-    m = core.match(/^([^,]+?)\s+(para|con el fin de|a fin de|con el objetivo de)\s+(\p{L}+)(\s+[^,]*)?$/u);
+    // Finalidad al final -> al inicio
+    m = core.match(/^([^,]+?)\s+(para|con el fin de|a fin de|con el objetivo de|con el propósito de)\s+(\p{L}+)(\s+[^,]*)?$/u);
     if (m && INF.test(m[3]) && nPalabras(m[1]) >= 4) {
-      out.push({ texto: mayusInicial(m[2]) + ' ' + m[3] + (m[4] || '') + ', ' + low(m[1]), regla: 'La finalidad pasa al inicio' });
+      push(mayusInicial(m[2]) + ' ' + m[3] + (m[4] || '') + ', ' + low(m[1]), 'la finalidad pasa al inicio', 'finalidad');
     }
-    // 5. Concesión al inicio <-> al final
+    // Concesión
     m = core.match(/^(Aunque|Si bien|A pesar de que|Pese a que)\s+([^,]+),\s+(.+)$/u);
     if (m && nPalabras(m[2]) >= 3 && nPalabras(m[3]) >= 3) {
-      const c = elegirDistinto(CONJ_CONCESION, m[1], h);
-      out.push({ texto: mayusInicial(m[3]) + ', ' + c + ' ' + m[2], regla: 'La concesión pasa al final' });
+      push(mayusInicial(m[3]) + ', ' + elegirDistinto(CONJ_CONCESION, m[1], h) + ' ' + m[2], 'la concesión pasa al final', 'concesion');
     }
     m = core.match(/^([^,]+),\s+(aunque|si bien|a pesar de que|pese a que)\s+([^,]+)$/u);
     if (m && nPalabras(m[1]) >= 3 && nPalabras(m[3]) >= 3) {
-      const c = elegirDistinto(CONJ_CONCESION, m[2], h);
-      out.push({ texto: mayusInicial(c) + ' ' + m[3] + ', ' + low(m[1]), regla: 'La concesión pasa al inicio' });
+      push(mayusInicial(elegirDistinto(CONJ_CONCESION, m[2], h)) + ' ' + m[3] + ', ' + low(m[1]), 'la concesión pasa al inicio', 'concesion');
     }
-    // 6. Condición al inicio -> al final
+    // Condición
     m = core.match(/^Si\s+([^,]+),\s+(.+)$/u);
     if (m && nPalabras(m[1]) >= 3 && nPalabras(m[2]) >= 3 && !/\bsi\b/i.test(m[2])) {
-      out.push({ texto: mayusInicial(m[2]) + ' si ' + m[1], regla: 'La condición pasa al final' });
+      push(mayusInicial(m[2]) + ' si ' + m[1], 'la condición pasa al final', 'condicion');
     }
-    // 7. ", lo que ..." -> dos oraciones
-    m = core.match(/^(.+?),\s+(lo que|lo cual)\s+(.+)$/u);
-    if (m && nPalabras(m[1]) >= 5 && nPalabras(m[3]) >= 4) {
-      const c = ['Esto', 'Ello', 'Esta situación'][Math.floor(h * 3)];
-      out.push({ texto: m[1] + '. ' + c + ' ' + m[3], regla: 'Se divide en dos oraciones' });
+    m = core.match(/^([^,]+?)\s+si\s+([^,]+)$/u);
+    if (m && nPalabras(m[1]) >= 3 && nPalabras(m[2]) >= 3) {
+      push('Si ' + m[2] + ', ' + low(m[1]), 'la condición pasa al inicio', 'condicion');
     }
-    // 8. Pasiva refleja -> pasiva perifrástica ("se analizaron los datos" -> "los datos fueron analizados")
-    m = core.match(/(^|,\s+)([Ss]e)\s+(\p{L}+)\s+((el|la|los|las|un|una|unos|unas)\s+(?:[\p{L}\d]+\s*?)+?)(?=(\s+(?:mediante|con|para|en|durante|a través|por|según|desde|hasta|que|y|sobre|entre|debido|mientras|cuando|donde|utilizando|usando|aplicando|a)(?:\s|$))|,|$)/u);
+    // Tiempo: "cuando / mientras / a medida que"
+    m = core.match(/^([^,]+?)\s+(cuando|mientras|a medida que|siempre que)\s+([^,]+)$/u);
+    if (m && nPalabras(m[1]) >= 3 && nPalabras(m[3]) >= 3 && !/\s(y|e)\s/.test(m[1])) {
+      push(mayusInicial(m[2]) + ' ' + m[3] + ', ' + low(m[1]), 'la subordinada de tiempo pasa al inicio', 'cuando');
+    }
+    m = core.match(/^(Cuando|Mientras|A medida que|Siempre que)\s+([^,]+),\s+(.+)$/u);
+    if (m && nPalabras(m[2]) >= 3 && nPalabras(m[3]) >= 3) {
+      push(mayusInicial(m[3]) + ' ' + m[1].toLowerCase() + ' ' + m[2], 'la subordinada de tiempo pasa al final', 'cuando');
+    }
+    // Complemento inicial (tiempo, lugar, fuente) -> al final
+    m = core.match(MARC_INI);
+    if (m && nPalabras(m[1]) <= 12 && nPalabras(m[2]) >= 4 && !/^(En|Para)\s+(consecuencia|conclusión|resumen|síntesis|cambio|general|efecto|definitiva|primer|segundo|tercer)/u.test(m[1])) {
+      const frase = m[1][0].toLowerCase() + m[1].slice(1);
+      if (COMA_FIN.test(frase) || (!m[2].includes(',') && !tieneSubordinada(m[2]))) push(mayusInicial(m[2]) + (COMA_FIN.test(frase) ? ', ' : ' ') + frase, 'el complemento pasa al final', 'complemento');
+    }
+    // Complemento final -> al inicio
+    if (!core.includes(',')) {
+      let ultimo = null, mm;
+      MARC_FIN.lastIndex = 0;
+      while ((mm = MARC_FIN.exec(core))) ultimo = mm;
+      if (ultimo) {
+        const cabeza = core.slice(0, ultimo.index);
+        const cola = core.slice(ultimo.index + 1);
+        const nc = nPalabras(cola);
+        const esAdverbio = /^(actualmente|hoy en día|en la actualidad)$/i.test(cola.trim());
+        if (nPalabras(cabeza) >= 4 && (esAdverbio || (nc >= 2 && nc <= 10)) && !tieneSubordinada(cola) && !coordinaVerbo(cola.split(/\s+/))) {
+          push(mayusInicial(cola) + ', ' + low(cabeza), 'el complemento pasa al inicio', 'complemento');
+        }
+      }
+    }
+    // Voz activa -> pasiva con «por» ("La empresa aplicó la metodología" -> "La metodología fue aplicada por la empresa")
+    (function () {
+      const ci = core.indexOf(',');
+      const clausula = ci >= 0 ? core.slice(0, ci) : core;
+      const resto = ci >= 0 ? core.slice(ci) : '';
+      const w = clausula.split(/\s+/);
+      const gnSuj = DET_GN[w[0].toLowerCase()];
+      if (!gnSuj || w.length < 5 || RELATIVO_INI.test(resto)) return;
+      for (let i = 2; i <= Math.min(8, w.length - 3); i++) {
+        const lw = w[i].toLowerCase();
+        const v = PASIVA.formas.get(lw);
+        if (!v) { if (STOP_SN.has(lw)) return; continue; }
+        if (NO_PASIVA_ACTIVA.has(v.inf) || v.n !== gnSuj[1]) return;
+        const gn = DET_GN[w[i + 1].toLowerCase()];
+        if (!gn) return;
+        const [obj, cola] = separarCola(w.slice(i + 1));
+        const objTxt = obj.join(' ');
+        if (obj.length > 14 || tieneSubordinada(objTxt) || coordinaVerbo(obj) || tieneSubordinada(cola.join(' '))) return;
+        const ser = { pret: ['fue', 'fueron'], pres: ['es', 'son'], fut: ['será', 'serán'] }[v.tiempo][gn[1] === 's' ? 0 : 1];
+        const part = v.f['part_' + gn[0] + gn[1]];
+        const suj = w.slice(0, i).join(' ');
+        push(mayusInicial(objTxt) + ' ' + ser + ' ' + part + ' por ' + low(suj) + (cola.length ? ' ' + cola.join(' ') : '') + resto, 'voz activa a pasiva', 'voz');
+        return;
+      }
+    })();
+    // Pasiva con «por» -> voz activa ("Los datos fueron analizados por el equipo" -> "El equipo analizó los datos")
+    (function () {
+      const ci = core.indexOf(',');
+      const clausula = ci >= 0 ? core.slice(0, ci) : core;
+      const resto = ci >= 0 ? core.slice(ci) : '';
+      const w = clausula.split(/\s+/);
+      const gnSuj = DET_GN[w[0].toLowerCase()];
+      if (!gnSuj) return;
+      for (let i = 2; i <= Math.min(9, w.length - 4); i++) {
+        const lw = w[i].toLowerCase();
+        if (!/^(fue|fueron|es|son|será|serán)$/.test(lw)) { if (STOP_SN.has(lw)) return; continue; }
+        const p = PASIVA.part.get(w[i + 1].toLowerCase());
+        if (!p || p.g !== gnSuj[0] || p.n !== gnSuj[1] || w[i + 2].toLowerCase() !== 'por') return;
+        const gnAg = DET_GN[w[i + 3].toLowerCase()];
+        if (!gnAg) return;
+        const [agente, cola] = separarCola(w.slice(i + 3));
+        if (agente.length > 8 || tieneSubordinada(agente.join(' '))) return;
+        const tiempo = /^(fue|fueron)$/.test(lw) ? 'pret' : /^(es|son)$/.test(lw) ? 'pres' : 'fut';
+        const verbo = p.f[tiempo + '3' + gnAg[1]];
+        push(mayusInicial(agente.join(' ')) + ' ' + verbo + ' ' + low(w.slice(0, i).join(' ')) + (cola.length ? ' ' + cola.join(' ') : '') + resto, 'pasiva a voz activa', 'voz');
+        return;
+      }
+    })();
+    // Pasiva refleja -> pasiva con «ser» ("se analizaron los datos" -> "los datos fueron analizados")
+    m = core.match(/(^|,\s+)([Ss]e)\s+(\p{L}+)\s+((el|la|los|las|un|una|unos|unas)\s+(?:[\p{L}\d⟦⟧%]+\s*?)+?)(?=(\s+(?:mediante|con|para|en|durante|a través|por|según|desde|hasta|que|y|sobre|entre|debido|mientras|cuando|donde|utilizando|usando|aplicando|a)(?:\s|$))|,|$)/u);
     if (m) {
-      const v = PASIVA.pret.get(m[3].toLowerCase());
+      const v = PASIVA.formas.get(m[3].toLowerCase());
       const gn = DET_GN[m[5]];
       const sn = m[4].trim();
       const palabrasSN = sn.split(/\s+/);
-      if (v && gn && gn[1] === v.n && palabrasSN.length <= 8 && !palabrasSN.slice(1).some((w) => STOP_SN.has(w.toLowerCase()))) {
-        const ser = v.n === 's' ? 'fue' : 'fueron';
+      const despuesSN = core.slice(m.index + m[0].length);
+      if (v && gn && gn[1] === v.n && palabrasSN.length <= 8 && !RELATIVO_INI.test(despuesSN) && !/^\s+(y|e|o|u)\s/.test(despuesSN) && !/^(antes|después|luego|ahora|también|además|así)$/i.test(palabrasSN[palabrasSN.length - 1]) && !palabrasSN.slice(1).some((x) => STOP_SN.has(x.toLowerCase()))) {
+        const ser = { pret: ['fue', 'fueron'], pres: ['es', 'son'], fut: ['será', 'serán'] }[v.tiempo][v.n === 's' ? 0 : 1];
         const part = v.f['part_' + gn[0] + gn[1]];
         const antes = core.slice(0, m.index) + m[1];
         const despues = core.slice(m.index + m[0].length);
-        const nuevoSN = m[1] ? sn : mayusInicial(sn);
-        out.push({ texto: antes + nuevoSN + ' ' + ser + ' ' + part + despues, regla: 'Voz pasiva con «fue/fueron»' });
+        push(antes + (m[1] ? sn : mayusInicial(sn)) + ' ' + ser + ' ' + part + despues, 'pasiva con «' + ser + '»', 'voz');
       }
     }
-    // 9. Pasiva perifrástica -> pasiva refleja ("los datos fueron analizados" -> "se analizaron los datos")
-    m = core.match(/(^|,\s+)((?:el|la|los|las|un|una|unos|unas)\s+(?:[\p{L}\d]+\s+){1,6}?)(fue|fueron)\s+(\p{L}+)((?:\s+(?!por\s)[^,]*)?)(?=,|$)/iu);
+    // Pasiva con «ser» sin agente -> pasiva refleja ("los datos fueron analizados" -> "se analizaron los datos")
+    m = core.match(/(^|,\s+)((?:el|la|los|las|un|una|unos|unas)\s+(?:[\p{L}\d⟦⟧%]+\s+){1,6}?)(fue|fueron|es|son)\s+(\p{L}+)((?:\s+(?!por\s)[^,]*)?)(?=,|$)/iu);
     if (m) {
       const p = PASIVA.part.get(m[4].toLowerCase());
-      const det = m[2].split(/\s+/)[0].toLowerCase();
-      const gn = DET_GN[det];
+      const gn = DET_GN[m[2].split(/\s+/)[0].toLowerCase()];
       const palabrasSN = m[2].trim().split(/\s+/);
-      const nSer = m[3].toLowerCase() === 'fue' ? 's' : 'p';
-      if (p && gn && p.g === gn[0] && p.n === gn[1] && nSer === gn[1] && !palabrasSN.slice(1).some((w) => STOP_SN.has(w.toLowerCase()))) {
-        const verbo = nSer === 's' ? p.f.pret3s : p.f.pret3p;
+      const ser = m[3].toLowerCase();
+      const nSer = /^(fue|es)$/.test(ser) ? 's' : 'p';
+      if (p && gn && p.g === gn[0] && p.n === gn[1] && nSer === gn[1] && !palabrasSN.slice(1).some((x) => STOP_SN.has(x.toLowerCase()))) {
+        const verbo = p.f[(/^fue/.test(ser) ? 'pret' : 'pres') + '3' + nSer];
         const sn = m[2].trim();
-        const snMin = sn[0].toLowerCase() + sn.slice(1);
-        const se = m[1] ? 'se' : 'Se';
         const antes = core.slice(0, m.index) + m[1];
         const despues = core.slice(m.index + m[0].length);
-        out.push({ texto: antes + se + ' ' + verbo + ' ' + snMin + m[5] + despues, regla: 'Voz pasiva con «se»' });
+        push(antes + (m[1] ? 'se' : 'Se') + ' ' + verbo + ' ' + sn[0].toLowerCase() + sn.slice(1) + m[5] + despues, 'pasiva con «se»', 'voz');
       }
+    }
+    // "Los resultados demuestran que X" -> "De acuerdo con los resultados, X"
+    m = core.match(/^((?:El|La|Los|Las|Este|Esta|Estos|Estas|Dicho|Dicha)\s+[^,]{2,60}?)\s+(demuestran?|muestran?|indican?|revelan?|evidencian?|reflejan?|señalan?|confirman?|sugieren?|concluyen?|afirman?|sostienen?|plantean?|demostraron|demostró|mostraron|mostró|indicaron|indicó|revelaron|reveló|evidenciaron|evidenció|reflejaron|reflejó|señalaron|señaló|confirmaron|confirmó|concluyeron|concluyó|determinaron|determinó)\s+que\s+(.+)$/u);
+    if (m && nPalabras(m[3]) >= 3 && !tieneSubordinada(m[1])) {
+      push(['De acuerdo con ', 'Según ', 'Conforme a '][Math.floor(h * 3)] + low(m[1]) + ', ' + m[3], 'se resume el verbo de reporte', 'reporte');
+    }
+    // relativo sin coma: "utiliza sensores que envían datos" -> "utiliza sensores. Estos envían datos"
+    m = core.match(/^([^,]+?)\s+que\s+(\p{L}+)(\s+[^,]+)$/u);
+    if (m && nPalabras(m[1]) >= 4 && nPalabras(m[3]) >= 2) {
+      const ant = m[1].split(/\s+/);
+      const previa = ant[ant.length - 1].toLowerCase();
+      const verbo = m[2].toLowerCase();
+      const noSirve = /(ó|aron|ieron|ar|er|ir)$/.test(previa) || PASIVA.formas.has(previa) || STOP_SN.has(previa) || GENERO_DE[previa] || DET_GN[previa] ||
+        /^(de|del|al|lo|así|ya|tal|más|menos|mayor|menor|mejor|peor|hace|dado|puesto|siempre|hasta|demuestran?|muestran?|indican?|señalan?|revelan?|evidencian?|reflejan?|considera|consideran|establece|establecen|plantea|plantean|sostiene|sostienen|afirma|afirman|propone|proponen|sabe|cree|creen|dice|dicen|implica|implican|significa|requiere|requieren|permite|permiten|busca|buscan|logra|logran)$/.test(previa) ||
+        DET_GN[verbo] || GENERO_DE[verbo] || /^(se|no|lo|la|le|les|los|las|ya|también|además)$/.test(verbo) === false && !/(a|e|an|en|ó|aron|ieron|aba|aban|ía|ían|rá|rán)$/.test(verbo);
+      if (!noSirve) {
+        const plural = /n$/.test(verbo) || (/^(se|no|lo|la|le|ya)$/.test(verbo) && /n(\s|$)/.test(m[3].trim().split(/\s+/)[0] + ' '));
+        let gen = 'm';
+        for (let k = ant.length - 1; k >= 0; k--) {
+          const x = ant[k].toLowerCase();
+          if (STOP_SN.has(x) || x === 'de' || x === 'del') continue;
+          if (plural !== /s$/.test(x)) continue;
+          const d = k > 0 ? DET_GN[ant[k - 1].toLowerCase()] : null;
+          gen = d ? d[0] : (/(a|as|ión|iones|dad|dades|tud|tudes)$/.test(x) ? 'f' : 'm');
+          break;
+        }
+        push(m[1] + '. ' + PRONOMBRE[gen + (plural ? 'p' : 's')] + ' ' + m[2] + m[3], 'se divide en dos oraciones', 'division', true);
+      }
+    }
+    // ", lo que ..." -> dos oraciones
+    m = core.match(/^(.+?),\s+(lo que|lo cual)\s+(.+)$/u);
+    if (m && nPalabras(m[1]) >= 5 && nPalabras(m[3]) >= 4) {
+      push(m[1] + '. ' + ['Esto', 'Ello', 'Esta situación'][Math.floor(h * 3)] + ' ' + m[3], 'se divide en dos oraciones', 'division', true);
+    }
+    // ", que ..." / ", el cual ..." -> dos oraciones
+    m = core.match(/^(.+?),\s+(que|el cual|la cual|los cuales|las cuales)\s+(.+)$/u);
+    if (m && nPalabras(m[1]) >= 4 && nPalabras(m[3]) >= 3) {
+      let gn = null;
+      const rel = m[2].toLowerCase();
+      if (rel === 'el cual') gn = 'ms'; else if (rel === 'la cual') gn = 'fs'; else if (rel === 'los cuales') gn = 'mp'; else if (rel === 'las cuales') gn = 'fp';
+      else {
+        const dets = m[1].toLowerCase().match(/(?:^|\s)(el|la|los|las|un|una|unos|unas|este|esta|estos|estas)\s/g);
+        if (dets) { const d = DET_GN[dets[dets.length - 1].trim()]; gn = d[0] + d[1]; }
+      }
+      if (gn) push(m[1] + '. ' + PRONOMBRE[gn] + ' ' + m[3], 'se divide en dos oraciones', 'division', true);
+    }
+    // ", y ..." -> dos oraciones
+    m = core.match(/^(.+?),\s+y\s+(.+)$/u);
+    if (m && nPalabras(m[1]) >= 4 && nPalabras(m[2]) >= 4 && !/,\s+y\s+/.test(m[2])) {
+      push(m[1] + '. ' + ['Además, ', 'Asimismo, ', 'A su vez, '][Math.floor(h * 3)] + low(m[2]), 'se divide en dos oraciones', 'division', true);
     }
     return out;
   }
 
+  const PASOS = { leve: 1, medio: 1, fuerte: 2 };
+
   function reestructurar(texto, opts) {
-    const p = PROB[opts.intensidad || 'medio'].estr;
+    const prob = PROB[opts.intensidad || 'medio'].estr;
+    const pasos = PASOS[opts.intensidad || 'medio'];
     const apagadas = new Set(opts.estructuraOff || []);
+    const forzadas = new Set(opts.estructuraOn || []);
     const low = crearMinuscula(texto);
     const partes = dividirOraciones(texto);
     let texto2 = '';
-    const rangos = []; // {sid, start, end, regla, original}
+    const rangos = [];
     let oi = 0;
+
     partes.forEach((pt) => {
       if (pt.tipo === 'g') { texto2 += pt.text; return; }
       const sid = oi++;
-      let nueva = null;
-      if (opts.estructura !== false) nueva = transformarOracion(pt.text, sid);
-      if (nueva) {
-        const ini = texto2.length;
-        texto2 += nueva.texto;
-        rangos.push({ sid, start: ini, end: texto2.length, regla: nueva.regla, original: pt.text, activa: true });
+      const r = opts.estructura !== false ? transformarOracion(pt.text, sid) : null;
+      const ini = texto2.length;
+      if (r && r.aplicada) {
+        texto2 += r.texto;
+        rangos.push({ sid, start: ini, end: texto2.length, regla: r.regla, original: pt.text, activa: true });
       } else {
-        if (nueva === null && candidatoGuardado) rangos.push({ sid, start: texto2.length, end: texto2.length + pt.text.length, regla: candidatoGuardado.regla, original: pt.text, activa: false });
         texto2 += pt.text;
+        if (r) rangos.push({ sid, start: ini, end: texto2.length, regla: r.regla, original: pt.text, activa: false });
       }
-      candidatoGuardado = null;
     });
     return { texto2, rangos };
 
-    var candidatoGuardado = null;
     function transformarOracion(s, sid) {
-      candidatoGuardado = null;
-      if (/["“”«»]/.test(s) || /^[¿¡]/.test(s)) return null;
+      if (/^[¿¡]/.test(s)) return null;
       const m = s.match(/^([\s\S]*?)(\s*\([^()]*\d{4}[^()]*\))?([.!?…]*)$/u);
       if (!m || !m[1].trim()) return null;
-      const core = m[1], cita = m[2] || '', fin = m[3] || '';
+      let core = m[1];
+      const cita = m[2] || '', fin = m[3] || '';
       if (/[;:\n]/.test(core)) return null;
-      const h = azar(opts.seed + 29, sid);
-      const cands = reglasEstructura(core, { low, h });
-      if (!cands.length) return null;
-      const c = cands[Math.floor(azar(opts.seed + 17, sid) * cands.length)];
-      // ¿se aplica? (intensidad o el usuario la desactivó)
-      if (apagadas.has(sid)) { candidatoGuardado = c; return null; }
-      if (azar(opts.seed + 11, sid) >= p) return null;
-      const texto3 = (mayusInicial(c.texto) + cita + fin).replace(/([^.])\.\.$/, '$1.');
-      return { texto: texto3, regla: c.regla };
+
+      // proteger citas, comillas y decimales para que sus comas no confundan a las reglas
+      const guard = [];
+      core = core.replace(/\([^()]*\)|"[^"]*"|“[^”]*”|«[^»]*»|\d+[.,]\d+/g, (x) => { guard.push(x); return '⟦' + (guard.length - 1) + '⟧'; });
+
+      // separar un conector inicial ("Por ello, ...")
+      let conector = '';
+      const mc = core.match(/^([^,]{2,40}),\s+(.+)$/u);
+      if (mc && CONECTORES_INI.has(mc[1].toLowerCase())) { conector = mc[1]; core = mayusInicial(mc[2]); }
+
+      let cur = core;
+      const aplicadas = [];
+      for (let paso = 0; paso < pasos; paso++) {
+        const cands = reglasEstructura(cur, { low, h: azar(opts.seed + 29 + paso, sid) })
+          .filter((c) => !aplicadas.some((a) => a.grupo === c.grupo) && !(paso > 0 && c.divide));
+        if (!cands.length) break;
+        const c = cands[Math.floor(azar(opts.seed + 17 + paso, sid) * cands.length)];
+        aplicadas.push(c);
+        cur = c.texto;
+        if (c.divide) break;
+      }
+      if (!aplicadas.length) return null;
+
+      const regla = aplicadas.map((a) => a.regla).join('; ');
+      const aplicada = forzadas.has(sid) || (!apagadas.has(sid) && azar(opts.seed + 11, sid) < prob);
+      let texto3 = conector ? conector + ', ' + low(cur) : mayusInicial(cur);
+      texto3 = (texto3 + cita + fin).replace(/([^.])\.\.$/, '$1.');
+      texto3 = texto3.replace(/⟦(\d+)⟧/g, (_, i) => guard[+i]);
+      return { texto: texto3, regla: regla[0].toUpperCase() + regla.slice(1), aplicada };
     }
   }
 
@@ -412,7 +599,7 @@
   // Parafrasear
   // ---------------------------------------------------------------
   function parafrasear(texto, opts) {
-    opts = Object.assign({ seed: 1, intensidad: 'medio', overrides: {}, protegidos: [], personales: [], dominio: 'general', estructura: true, estructuraOff: [] }, opts || {});
+    opts = Object.assign({ seed: 1, intensidad: 'medio', overrides: {}, protegidos: [], personales: [], dominio: 'general', estructura: true, estructuraOff: [], estructuraOn: [] }, opts || {});
     const seed = opts.seed;
     const pSin = PROB[opts.intensidad].sin;
     const overrides = opts.overrides;
@@ -597,7 +784,7 @@
     // --- Concordancia de género ---
     concordancias.forEach(({ ti, gen }) => {
       let cur = ti;
-      for (let paso = 0; paso < 2; paso++) {
+      for (let paso = 0; paso < 3; paso++) {
         const pidx = prevContiguo(cur);
         if (pidx == null) break;
         const tk = toks[pidx];
@@ -618,6 +805,8 @@
         if (lw === 'del' && gen === 'f') { tk.out = capitalizarComo(tk.out, 'de la'); if (!tk.cls) tk.cls = 'concordancia'; break; }
         if (lw === 'al' && gen === 'f') { tk.out = capitalizarComo(tk.out, 'a la'); if (!tk.cls) tk.cls = 'concordancia'; break; }
         if (esAdjVariable(lw)) { tk.out = cambiarGeneroAdj(tk.out, gen); if (!tk.cls) tk.cls = 'concordancia'; cur = pidx; continue; }
+        // adjetivo invariable antepuesto ("la presente investigación"): se salta y se sigue buscando el artículo
+        if (/(ente|ante|al|ar|ble|il|ior)$/.test(lw) && !STOP_SN.has(lw)) { cur = pidx; continue; }
         break;
       }
       const s = sigContiguo(ti);
@@ -628,19 +817,22 @@
           if (!tk.cls) tk.cls = 'concordancia';
         }
       }
-      // sujeto de una pasiva: "la limpieza del área fue realizada" -> "el aseo del área fue realizado"
-      let k = posEnW.get(ti);
-      for (let paso = 0; paso < 6 && k < W.length - 1; paso++) {
+      // sujeto de una pasiva o atributo: "la limpieza del área fue realizada" -> "el aseo del área fue realizado"
+      // (solo si el sustantivo es el núcleo, no un complemento como "de las herramientas")
+      const p1 = prevContiguo(ti), p2 = p1 != null ? prevContiguo(p1) : null;
+      const esComplemento = p2 != null && /^(de|del|en|con|a|al|por|para|sobre|entre)$/i.test(toks[p2].out);
+      let k = esComplemento ? W.length : posEnW.get(ti);
+      for (let paso = 0; paso < 10 && k < W.length - 1; paso++) {
         const entre = toks.slice(W[k] + 1, W[k + 1]).map((t) => t.t).join('');
         if (!/^\s+$/.test(entre)) break;
         k++;
         const w = toks[W[k]].out.toLowerCase();
         if (w === 'que' || w === 'y' || w === 'o') break;
-        if (/^(fue|fueron|es|son|era|eran|será|serán|ha sido|está|están|estaba|estaban|resultó|resultaron)$/.test(w)) {
+        if (/^(fue|fueron|es|son|era|eran|será|serán|sido|está|están|estaba|estaban|estuvo|estuvieron|resulta|resultan|resultó|resultaron|encuentra|encuentran|encontraba|encontraban|queda|quedan|quedó|quedaron|permanece|permanecen|mantiene|mantienen)$/.test(w)) {
           const sigP = sigContiguo(W[k]);
           if (sigP != null) {
             const tp = toks[sigP];
-            if (!tp.prot && /(ad|id|ich|it|ert|uest|ech)[oa]s?$/.test(tp.out.toLowerCase())) {
+            if (!tp.prot && (/(ad|id|ich|it|ert|uest|ech)[oa]s?$/.test(tp.out.toLowerCase()) || IX.ADJ_VAR.has(tp.out.toLowerCase()))) {
               tp.out = cambiarGeneroAdj(tp.out, gen);
               if (!tp.cls) tp.cls = 'concordancia';
             }

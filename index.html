@@ -274,7 +274,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const P = window.Parafraseador;
-  const state = { intensidad: 'medio', seed: 1, overrides: {}, estructuraOff: new Set(), ultimo: null, textoBase: '' };
+  const state = { intensidad: 'medio', seed: 1, overrides: {}, estructuraOff: new Set(), estructuraOn: new Set(), ultimo: null, textoBase: '' };
 
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -289,7 +289,7 @@
   $('personales').value = store.get('pp_personales') || '';
   setIntensidad(store.get('pp_intensidad') || 'medio', false);
 
-  function reiniciarElecciones() { state.overrides = {}; state.estructuraOff = new Set(); }
+  function reiniciarElecciones() { state.overrides = {}; state.estructuraOff = new Set(); state.estructuraOn = new Set(); }
   function setIntensidad(v, rerun) {
     state.intensidad = v;
     document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.int === v)));
@@ -316,7 +316,7 @@
     const r = P.parafrasear(texto, {
       seed: state.seed, intensidad: state.intensidad, overrides: state.overrides,
       protegidos: listaProtegidos(), personales: P.leerPersonales($('personales').value),
-      dominio: $('dominio').value, estructura: $('estructura').checked, estructuraOff: [...state.estructuraOff],
+      dominio: $('dominio').value, estructura: $('estructura').checked, estructuraOff: [...state.estructuraOff], estructuraOn: [...state.estructuraOn],
     });
     state.ultimo = r;
     render(texto, r);
@@ -439,9 +439,9 @@
     menu.appendChild(p);
     if (e.activa) {
       const q = document.createElement('blockquote'); q.textContent = e.original; menu.appendChild(q);
-      boton('Volver a la estructura original', 'accion', () => { state.estructuraOff.add(sid); state.overrides = {}; ejecutar(); });
+      boton('Volver a la estructura original', 'accion', () => { state.estructuraOn.delete(sid); state.estructuraOff.add(sid); state.overrides = {}; ejecutar(); });
     } else {
-      boton('Reordenar esta oración', 'accion', () => { state.estructuraOff.delete(sid); state.overrides = {}; ejecutar(); });
+      boton('Reordenar esta oración', 'accion', () => { state.estructuraOff.delete(sid); state.estructuraOn.add(sid); state.overrides = {}; ejecutar(); });
     }
     posicionar(pin);
     const cont = pin.parentElement; cont.classList.add('foco');
@@ -508,7 +508,7 @@
   });
   $('resultado').addEventListener('click', (e) => {
     if (e.target.id !== 'btnEjemplo') return;
-    $('original').value = 'El inventario presenta diferencias porque no se registran todas las salidas de mercadería. Para mejorar el control, la empresa implementó un sistema que permite registrar los movimientos en tiempo real. Se analizaron los datos de los últimos seis meses, lo que permitió identificar los productos con mayor rotación. Sin embargo, el problema principal es la falta de capacitación del personal (Pérez, 2021).';
+    $('original').value = 'El inventario presenta diferencias porque no se registran todas las salidas de mercadería. Para mejorar el control, la empresa implementó un sistema que permite registrar los movimientos en tiempo real. Se analizaron los datos de los últimos seis meses, lo que permitió identificar los productos con mayor rotación. Los resultados demuestran que el sistema reduce los errores de registro (Pérez, 2021).';
     $('original').dispatchEvent(new Event('input'));
     if ($('dominio').value === 'general') $('dominio').value = 'gestion';
     reiniciarElecciones();
