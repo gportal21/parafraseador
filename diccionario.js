@@ -1,5 +1,8 @@
 /*
  * Diccionario del parafraseador.
+ * Los grupos de sinónimos de abajo solo delimitan qué sentidos son intercambiables en textos académicos;
+ * el motor usa únicamente los pares que también figuran en OpenThesaurus-es (archivo tesauro.js).
+ * Los conectores provienen de las guías de la U. Externado y la U. del Rosario (CONECTORES_GUIAS).
  * - frases: grupos de expresiones equivalentes (se reemplazan tal cual).
  * - sust: grupos de sustantivos [lema, género]. needsDet: solo se cambian tras un determinante.
  * - adj: grupos de adjetivos en masculino singular.
@@ -11,64 +14,22 @@
   'use strict';
 
   const GENERAL = {
+    // Expresiones que no son conectores: solo se usan los pares respaldados por OpenThesaurus (ver tesauro.js)
     frases: [
-      ['sin embargo', 'no obstante', 'aun así', 'con todo'],
-      ['por lo tanto', 'por tanto', 'por consiguiente', 'en consecuencia', 'por ende'],
-      ['además', 'asimismo', 'adicionalmente'],
-      ['del mismo modo', 'de igual manera', 'de igual forma', 'de la misma manera'],
-      ['por ejemplo', 'a modo de ejemplo', 'como muestra'],
-      ['es decir', 'esto es', 'o sea', 'en otras palabras'],
-      ['en primer lugar', 'primeramente', 'para empezar'],
-      ['finalmente', 'por último', 'para finalizar'],
-      ['en conclusión', 'en síntesis', 'en resumen', 'para concluir'],
-      ['debido a', 'a causa de', 'como consecuencia de', 'en virtud de'],
-      ['ya que', 'puesto que', 'dado que', 'debido a que'],
-      ['aunque', 'si bien', 'pese a que', 'a pesar de que'],
-      ['a pesar de', 'pese a'],
-      ['en cambio', 'por el contrario'],
-      ['a través de', 'mediante', 'por medio de'],
-      ['con el fin de', 'con el propósito de', 'con el objetivo de', 'a fin de'],
-      ['con respecto a', 'respecto a', 'en relación con', 'en cuanto a'],
-      ['actualmente', 'en la actualidad', 'hoy en día'],
-      ['generalmente', 'por lo general', 'en general'],
+      ['a la vez', 'al mismo tiempo', 'simultáneamente'],
+      ['actualmente', 'hoy', 'ahora'],
+      ['frecuentemente', 'a menudo', 'con frecuencia'],
+      ['rápidamente', 'velozmente', 'deprisa'],
       ['principalmente', 'sobre todo', 'fundamentalmente'],
-      ['en este sentido', 'en esta línea', 'desde esta perspectiva'],
-      ['por otro lado', 'por otra parte', 'de otro lado'],
-      ['de acuerdo con', 'según', 'conforme a'],
-      ['con frecuencia', 'frecuentemente', 'a menudo'],
-      ['después de', 'luego de', 'tras'],
-      ['posteriormente', 'más adelante', 'luego'],
-      ['rápidamente', 'con rapidez'],
-      ['claramente', 'con claridad'],
+      ['claramente', 'evidentemente'],
+      ['generalmente', 'por lo general', 'habitualmente'],
+      ['constantemente', 'continuamente', 'permanentemente'],
+      ['inicialmente', 'al principio'],
+      ['posteriormente', 'después', 'luego'],
       ['significativamente', 'considerablemente', 'notablemente'],
-      ['inicialmente', 'en un inicio', 'al principio'],
-      ['es importante', 'resulta importante', 'es relevante'],
-      ['es necesario', 'resulta necesario', 'se hace necesario'],
-      ['cabe mencionar que', 'conviene señalar que', 'es preciso indicar que'],
-      ['en la medida en que', 'en tanto que'],
-      ['al mismo tiempo', 'simultáneamente', 'a la vez'],
-      ['de esta manera', 'de este modo', 'de esta forma'],
-      ['tiene como objetivo', 'tiene como finalidad', 'tiene como propósito'],
-      ['en base a', 'sobre la base de', 'con base en'],
-      ['en su mayoría', 'mayoritariamente', 'en gran parte'],
-      ['cada vez más', 'progresivamente'],
-      ['por lo que', 'de modo que', 'de manera que', 'así que'],
-      ['constantemente', 'continuamente', 'de forma constante'],
-      ['muy rápido', 'con gran rapidez', 'muy rápidamente'],
-      ['sin necesidad', 'innecesariamente'],
-      ['en la práctica', 'en términos prácticos', 'en la realidad'],
-      ['frente a', 'en comparación con'],
-      ['pusieron a prueba', 'evaluaron', 'sometieron a prueba'],
-      ['puso a prueba', 'evaluó', 'sometió a prueba'],
-      ['en el que', 'en el cual', '>donde'],
-      ['en la que', 'en la cual', '>donde'],
-      ['trabajaron con', 'se centraron en', 'abordaron'],
-      ['trabajó con', 'se centró en', 'abordó'],
-      ['sin afectar', 'sin comprometer', 'sin perjudicar'],
-      ['a gran escala', 'en gran volumen'],
-      ['de manera automática', 'de forma automática', 'automáticamente'],
-      ['por sí solos', 'de forma autónoma'],
-      ['por sí solas', 'de forma autónoma'],
+      ['mediante', 'por medio de', 'a través de'],
+      ['debido a', 'a causa de', 'por causa de'],
+      ['según', 'conforme a', 'de acuerdo con'],
     ],
     sust: [
       { g: [['problema', 'm'], ['dificultad', 'f'], ['inconveniente', 'm']], needsDet: true },
@@ -189,7 +150,7 @@
       ['disparar', 'activar', 'desencadenar'],
       ['devolver', 'restablecer'],
       ['tardar', 'demorar'],
-      ['acortar', 'recortar', 'reducir'],
+      ['acortar', 'recortar'],
       ['vigilar', 'monitorear', 'controlar'],
       ['acercar', 'aproximar'],
       ['degradar', 'deteriorar'],
@@ -202,6 +163,53 @@
       'dataset', 'datasets', 'framework', 'microservicios', 'inferencia', 'latencia', 'autoescalado', 'contenedores', 'deriva',
       'reentrenamiento', 'reentrenar', 'software', 'hardware', 'big data', 'cloud', 'feedback', 'benchmark', 'stakeholders', 'et al', 'en tiempo real', 'error', 'errores', 'prueba de kolmogorov-smirnov', 'ks-test', 'se trata de', 'se trata del', 'se trataba de', 'se trataba del', 'se tratan de'],
   };
+
+
+  // ---------------------------------------------------------------
+  // Fuentes. Cada técnica y cada lista de palabras del motor sale de aquí.
+  // ---------------------------------------------------------------
+  const FUENTES = {
+    purdue: { nombre: 'Purdue OWL, «Paraphrasing and Summary»', url: 'https://owl.purdue.edu/owl/multilingual/multilingual_students/paraphrasing_and_summary/index.html' },
+    lau: { nombre: 'Lebanese American University, Writing Center, «Paraphrasing»', url: 'https://soas.lau.edu.lb/images/WrC%20Paraphrasing%20Handout.pdf' },
+    csusm: { nombre: 'CSUSM Writing Center, «Paraphrasing»', url: 'https://csusm.edu/lts/studentresources/handouts/wc-handouts/2022_fall_handouts/paraphrasing-handout-08.01.22.pdf' },
+    portsmouth: { nombre: 'University of Portsmouth, «Paraphrasing: an introduction»', url: 'https://myport.port.ac.uk/sites/default/files/2023-01/Paraphrasing%20-%20an%20introduction.pdf' },
+    uts: { nombre: 'UTS HELPS, «Paraphrasing» (factsheet)', url: 'https://uts.edu.au/sites/default/files/Paraphrasing%20Factsheet.pdf' },
+    apa: { nombre: 'APA 7, guía de parafraseo (Atlantic TU Library)', url: 'https://atlantictu.libguides.com/APA7/citation/paraphrasing' },
+    externado: { nombre: 'Universidad Externado de Colombia, «Conectores lógicos»', url: 'https://www.uexternado.edu.co/wp-content/uploads/2023/08/CONECTORES-LOGICOS.pdf' },
+    rosario: { nombre: 'Universidad del Rosario, «Guía de conectores»', url: 'https://formacioncontinua.urosario.edu.co/sites/default/files/2025-09/conectores-guia.pdf' },
+    openthesaurus: { nombre: 'OpenThesaurus-es (tesauro de LibreOffice, LGPL 2.1)', url: 'https://github.com/LibreOffice/dictionaries/tree/master/es' },
+    rae_pasiva: { nombre: 'RAE, Glosario de términos gramaticales: «pasiva refleja» y «pasiva perifrástica»', url: 'https://www.rae.es/gtg/pasiva-refleja' },
+  };
+
+  // Técnicas de parafraseo que aplica el motor y la guía que las describe.
+  const TECNICAS = {
+    orden: { nombre: 'Mover una frase o cláusula dentro de la oración', fuentes: ['purdue', 'lau'] },
+    voz: { nombre: 'Cambiar entre voz activa y pasiva', fuentes: ['lau', 'portsmouth', 'rae_pasiva'] },
+    dividir: { nombre: 'Dividir o combinar oraciones', fuentes: ['purdue'] },
+    reordenar: { nombre: 'Reordenar palabras o frases', fuentes: ['csusm', 'lau'] },
+    sinonimos: { nombre: 'Sustituir por sinónimos', fuentes: ['purdue', 'uts', 'openthesaurus'] },
+    conectores: { nombre: 'Sustituir un conector por otro del mismo grupo', fuentes: ['externado', 'rosario'] },
+  };
+
+  // Conectores: solo se intercambian dentro del mismo grupo de la guía
+  // (criterio de la guía de la U. Externado: «se sustituye por otro del mismo grupo»).
+  // Se excluyen los que cambian de posición o exigen otro modo verbal (p. ej. «de ahí que» + subjuntivo).
+  const CONECTORES_GUIAS = [
+    { g: ['además', 'asimismo', 'igualmente', 'por añadidura'], f: ['externado', 'rosario'] },
+    { g: ['del mismo modo', 'de la misma manera'], f: ['externado'] },
+    { g: ['es más', 'más aún'], f: ['externado', 'rosario'] },
+    { g: ['sin embargo', 'no obstante', 'con todo', 'aun así'], f: ['externado', 'rosario'] },
+    { g: ['por tanto', 'por lo tanto', 'por consiguiente', 'en consecuencia', 'así pues', 'por eso', 'por esta razón'], f: ['externado', 'rosario'] },
+    { g: ['ya que', 'puesto que', 'debido a que'], f: ['rosario'] },
+    { g: ['aunque', 'si bien'], f: ['rosario'] },
+    { g: ['es decir', 'esto es', 'en otras palabras', 'o sea'], f: ['externado', 'rosario'] },
+    { g: ['en resumen', 'en conclusión', 'en definitiva', 'en síntesis', 'en suma'], f: ['externado', 'rosario'] },
+    { g: ['en primer lugar', 'para comenzar'], f: ['rosario'] },
+    { g: ['finalmente', 'por último'], f: ['rosario'] },
+    { g: ['por otra parte', 'por otro lado'], f: ['rosario'] },
+    { g: ['simultáneamente', 'al mismo tiempo'], f: ['externado'] },
+    { g: ['siempre que', 'siempre y cuando'], f: ['rosario'] },
+  ];
 
   const DOMINIOS = {
     general: { nombre: 'General', frases: [], sust: [], adj: [], verb: [], protegidos: [] },
@@ -346,7 +354,7 @@
     comprobar: { pres3s: 'comprueba', pres3p: 'comprueban', subj3s: 'compruebe', subj3p: 'comprueben' },
   };
 
-  const api = { GENERAL, DOMINIOS, VERBOS_PASIVA, IRREGULARES };
+  const api = { GENERAL, DOMINIOS, VERBOS_PASIVA, IRREGULARES, FUENTES, TECNICAS, CONECTORES_GUIAS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PP_DICCIONARIO = api;
 })(typeof self !== 'undefined' ? self : this);

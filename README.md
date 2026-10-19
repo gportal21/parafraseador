@@ -1,6 +1,26 @@
 # Parafraseador por reglas
 
-Página web que parafrasea textos en español aplicando reglas lingüísticas fijas, sin inteligencia artificial ni modelos de lenguaje. Todo se ejecuta en el navegador: el texto no se envía a ningún servidor.
+Página web que parafrasea textos en español aplicando técnicas de parafraseo descritas en guías académicas, sin inteligencia artificial ni modelos de lenguaje. Todo se ejecuta en el navegador: el texto no se envía a ningún servidor.
+
+## Fuentes
+
+Cada técnica y cada palabra que el motor puede introducir proviene de una fuente publicada:
+
+| Qué hace el motor | Fuente |
+|---|---|
+| Mover frases y cláusulas dentro de la oración | [Purdue OWL](https://owl.purdue.edu/owl/multilingual/multilingual_students/paraphrasing_and_summary/index.html); [LAU Writing Center](https://soas.lau.edu.lb/images/WrC%20Paraphrasing%20Handout.pdf) |
+| Cambiar entre voz activa y pasiva | [LAU Writing Center](https://soas.lau.edu.lb/images/WrC%20Paraphrasing%20Handout.pdf); [U. of Portsmouth](https://myport.port.ac.uk/sites/default/files/2023-01/Paraphrasing%20-%20an%20introduction.pdf); [RAE, pasiva refleja](https://www.rae.es/gtg/pasiva-refleja) y [pasiva perifrástica](https://www.rae.es/gtg/pasiva-perifrástica) |
+| Dividir o combinar oraciones | [Purdue OWL](https://owl.purdue.edu/owl/multilingual/multilingual_students/paraphrasing_and_summary/index.html) |
+| Reordenar palabras o frases | [CSUSM Writing Center](https://csusm.edu/lts/studentresources/handouts/wc-handouts/2022_fall_handouts/paraphrasing-handout-08.01.22.pdf); [LAU Writing Center](https://soas.lau.edu.lb/images/WrC%20Paraphrasing%20Handout.pdf) |
+| Sinónimos | Técnica: [Purdue OWL](https://owl.purdue.edu/owl/multilingual/multilingual_students/paraphrasing_and_summary/index.html), [UTS HELPS](https://uts.edu.au/sites/default/files/Paraphrasing%20Factsheet.pdf). Vocabulario: solo pares que figuran en [OpenThesaurus-es](https://github.com/LibreOffice/dictionaries/tree/master/es) (`tesauro.js`) |
+| Conectores | Solo se cambian por otros del mismo grupo de las guías de la [U. Externado](https://www.uexternado.edu.co/wp-content/uploads/2023/08/CONECTORES-LOGICOS.pdf) y la [U. del Rosario](https://formacioncontinua.urosario.edu.co/sites/default/files/2025-09/conectores-guia.pdf) |
+| Citar la fuente aunque se parafrasee | [APA 7 (Atlantic TU Library)](https://atlantictu.libguides.com/APA7/citation/paraphrasing) |
+
+El motor no inserta frases propias: solo agrega las palabras gramaticales que exige cada técnica (artículos, «se», «fue/fueron», «por», «esto/este»). Los grupos de `diccionario.js` solo limitan qué sentidos de cada palabra son intercambiables; un par se usa únicamente si también figura en el tesauro.
+
+### Licencia del tesauro
+
+`tesauro.js` contiene datos derivados de OpenThesaurus-es (Marcelo Garrone), distribuido con LibreOffice bajo la GNU LGPL 2.1. El texto de la licencia está en `LICENCIA-TESAURO.txt` y la nota original en `herramientas/README_th_es.txt`. Para regenerarlo: `node herramientas/generar_tesauro.js th_es_v2.dat`.
 
 Página publicada: https://gportal21.github.io/parafraseador/
 
